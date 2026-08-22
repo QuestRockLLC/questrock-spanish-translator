@@ -1,4 +1,12 @@
 from dataclasses import dataclass
+from typing import Literal
+
+
+@dataclass(frozen=True)
+class LoopbackDevice:
+    id: str
+    name: str
+    kind: Literal["loopback"]
 
 
 @dataclass(frozen=True)
