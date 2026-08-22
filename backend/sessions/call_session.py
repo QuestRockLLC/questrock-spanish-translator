@@ -27,6 +27,7 @@ class CallSession:
         whisper: WhisperTranscriber,
         translator: MortgageTranslator,
         emit: Callable[[ServerMessage], None],
+        on_stop: Callable[[], None] | None = None,
     ) -> None:
         self.call_session_id = call_session_id
         self.device_id = device_id
@@ -35,6 +36,7 @@ class CallSession:
         self._whisper = whisper
         self._translator = translator
         self._emit = emit
+        self._on_stop = on_stop
         self._stopped = False
 
     async def run(self) -> None:
@@ -59,7 +61,11 @@ class CallSession:
         if self._stopped:
             return
         self._stopped = True
-        self._capture.stop()
+        try:
+            self._capture.stop()
+        finally:
+            if self._on_stop is not None:
+                self._on_stop()
 
     async def _process(self, utterance: Utterance) -> None:
         self._status("transcribing")

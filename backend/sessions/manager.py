@@ -79,6 +79,7 @@ class SessionManager:
             whisper=whisper,
             translator=translator,
             emit=emit,
+            on_stop=lambda: self.discard(call_session_id),
         )
         self._sessions[call_session_id] = session
         return session

@@ -121,7 +121,7 @@ def test_stop_is_idempotent_and_stops_capture() -> None:
     assert capture.stopped is True
 
 
-def test_session_manager_creates_gets_and_discards_sessions() -> None:
+def test_session_manager_discards_stopped_session() -> None:
     manager = SessionManager()
     capture = FakeCapture(
         devices=[LoopbackDevice("d1", "Speakers", "loopback")],
@@ -139,7 +139,28 @@ def test_session_manager_creates_gets_and_discards_sessions() -> None:
     )
 
     assert manager.get("abc") is session
-    manager.discard("abc")
+    session.stop()
+    assert manager.get("abc") is None
+
+
+@pytest.mark.asyncio
+async def test_session_manager_discards_finished_session() -> None:
+    manager = SessionManager()
+    session = manager.create(
+        call_session_id="abc",
+        device_id="d1",
+        capture=FakeCapture(
+            devices=[LoopbackDevice("d1", "Speakers", "loopback")],
+            frames=[],
+        ),
+        vad=FakeVad(emit_on_nth=1, pcm=b""),
+        whisper=FakeWhisper(text=None),
+        translator=FakeTranslator(text=None),
+        emit=lambda _event: None,
+    )
+
+    await session.run()
+
     assert manager.get("abc") is None
 
 
