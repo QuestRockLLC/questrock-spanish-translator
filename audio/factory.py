@@ -18,6 +18,10 @@ class AudioCapture(Protocol):
 
 def capture_for_platform() -> AudioCapture:
     platform = sys.platform
-    if platform not in ("darwin", "win32"):
-        raise RuntimeError("unsupported platform")
-    raise RuntimeError("not implemented")
+    if platform == "darwin":
+        from audio.macos import MacosScreenCaptureKitCapture
+
+        return MacosScreenCaptureKitCapture()
+    if platform == "win32":
+        raise RuntimeError("not implemented")
+    raise RuntimeError("unsupported platform")
