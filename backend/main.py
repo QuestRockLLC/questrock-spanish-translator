@@ -5,6 +5,7 @@ from audio.factory import AudioCapture, capture_for_platform
 from backend.api.devices import create_devices_router
 from backend.api.health import router as health_router
 from backend.logging import configure_logging
+from backend.sessions.manager import production_session_factory
 from backend.settings import Settings
 from backend.websocket.handler import SessionFactory, create_calls_router
 
@@ -37,7 +38,7 @@ def run() -> None:
     configure_logging()
     settings = Settings()
     uvicorn.run(
-        create_app(),
+        create_app(session_factory=production_session_factory()),
         host="127.0.0.1",
         port=settings.port,
         log_config=None,

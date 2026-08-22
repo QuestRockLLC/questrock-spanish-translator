@@ -2,7 +2,7 @@ import pytest
 
 from audio.types import AudioFrame, LoopbackDevice
 from backend.sessions.call_session import CallSession
-from backend.sessions.manager import SessionManager
+from backend.sessions.manager import SessionManager, production_dependencies
 from backend.websocket.protocol import ServerMessage, Status, Transcript
 from tests.fakes import FakeCapture, FakeTranslator, FakeVad, FakeWhisper
 
@@ -141,3 +141,40 @@ def test_session_manager_creates_gets_and_discards_sessions() -> None:
     assert manager.get("abc") is session
     manager.discard("abc")
     assert manager.get("abc") is None
+
+
+def test_production_dependencies_exposes_loader_hooks() -> None:
+    deps = production_dependencies()
+
+    assert hasattr(deps, "load_whisper")
+    assert hasattr(deps, "load_translator")
+    assert hasattr(deps, "load_vad")
+
+
+def test_run_wires_production_session_factory(monkeypatch) -> None:
+    import backend.main as main
+
+    factory = object()
+    captured_factories = []
+    app = object()
+
+    monkeypatch.setattr(
+        main,
+        "production_session_factory",
+        lambda: factory,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main,
+        "create_app",
+        lambda capture=None, session_factory=None: (
+            captured_factories.append(session_factory) or app
+        ),
+    )
+    monkeypatch.setattr(main, "configure_logging", lambda: None)
+    monkeypatch.setattr(main, "Settings", lambda: type("Settings", (), {"port": 8765})())
+    monkeypatch.setattr(main.uvicorn, "run", lambda *_args, **_kwargs: None)
+
+    main.run()
+
+    assert captured_factories == [factory]
