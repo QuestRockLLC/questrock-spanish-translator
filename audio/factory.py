@@ -23,5 +23,7 @@ def capture_for_platform() -> AudioCapture:
 
         return MacosScreenCaptureKitCapture()
     if platform == "win32":
-        raise RuntimeError("not implemented")
-    raise RuntimeError("unsupported platform")
+        from audio.windows import WindowsWasapiLoopbackCapture
+
+        return WindowsWasapiLoopbackCapture()
+    raise RuntimeError(f"unsupported platform: {platform}")
