@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -37,7 +38,7 @@ class Transcript:
     is_final: bool
     original_language: str
     original_text: str
-    translated_text: str
+    translated_text: str | None
     confidence: float
     t0_ms: int
     t1_ms: int
@@ -60,10 +61,10 @@ ClientMessage = Hello | StartCall | StopCall
 ServerMessage = SessionStarted | Status | Transcript | ErrorMessage
 
 
-def parse_client_message(raw: dict) -> ClientMessage:
+def parse_client_message(raw: dict[str, Any]) -> ClientMessage:
     msg_type = raw.get("type")
     if msg_type == "hello":
-        if "protocol_version" not in raw:
+        if raw.get("protocol_version") != 1:
             raise ProtocolError(code="protocol", message="Unknown message type")
         return Hello(protocol_version=raw["protocol_version"])
     if msg_type == "start_call":
@@ -77,7 +78,7 @@ def parse_client_message(raw: dict) -> ClientMessage:
     raise ProtocolError(code="protocol", message="Unknown message type")
 
 
-def encode_server_message(msg: ServerMessage) -> dict:
+def encode_server_message(msg: ServerMessage) -> dict[str, Any]:
     if isinstance(msg, SessionStarted):
         return {
             "type": "session_started",
@@ -85,7 +86,7 @@ def encode_server_message(msg: ServerMessage) -> dict:
             "device_id": msg.device_id,
         }
     if isinstance(msg, Status):
-        payload: dict = {
+        payload: dict[str, Any] = {
             "type": "status",
             "call_session_id": msg.call_session_id,
             "state": msg.state,

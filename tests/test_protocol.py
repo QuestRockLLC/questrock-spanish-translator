@@ -18,6 +18,12 @@ def test_parse_hello():
     assert msg == Hello(protocol_version=1)
 
 
+def test_hello_rejects_non_v1_protocol_version():
+    with pytest.raises(ProtocolError) as exc:
+        parse_client_message({"type": "hello", "protocol_version": 2})
+    assert exc.value.code == "protocol"
+
+
 def test_parse_start_call():
     msg = parse_client_message(
         {"type": "start_call", "device_id": "system-audio", "language": "spanish"}
@@ -94,3 +100,20 @@ def test_encode_transcript_is_final_true():
     assert payload["type"] == "transcript"
     assert payload["is_final"] is True
     assert payload["original_text"] == "hola"
+
+
+def test_encode_transcript_translated_text_null():
+    payload = encode_server_message(
+        Transcript(
+            call_session_id="s1",
+            id="t1",
+            is_final=True,
+            original_language="es",
+            original_text="hola",
+            translated_text=None,
+            confidence=0.9,
+            t0_ms=0,
+            t1_ms=800,
+        )
+    )
+    assert payload["translated_text"] is None
