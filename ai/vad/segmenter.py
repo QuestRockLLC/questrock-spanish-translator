@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from audio.types import AudioFrame
+
+if TYPE_CHECKING:
+    from torch import Tensor
 
 SAMPLE_RATE = 16_000
 CHUNK_SAMPLES = 512
@@ -11,6 +16,33 @@ SPEECH_THRESHOLD = 0.5
 
 class SpeechScorer(Protocol):
     def score(self, chunk: bytes) -> float: ...
+
+
+class _SileroProbability(Protocol):
+    def item(self) -> float: ...
+
+
+class _SileroModel(Protocol):
+    def __call__(
+        self, audio: Tensor, sample_rate: int
+    ) -> _SileroProbability: ...
+
+
+class _SileroLoader(Protocol):
+    def __call__(self, *, onnx: bool) -> _SileroModel: ...
+
+
+class _SileroScorer:
+    def __init__(self, model: _SileroModel) -> None:
+        self._model = model
+
+    def score(self, chunk: bytes) -> float:
+        import numpy as np
+        import torch
+
+        samples = np.frombuffer(chunk, dtype="<i2").astype(np.float32)
+        audio = torch.from_numpy(samples / 32768.0)
+        return float(self._model(audio, SAMPLE_RATE).item())
 
 
 @dataclass(frozen=True)
@@ -33,6 +65,27 @@ class VadSegmenter:
         self._max_utterance_ms = max_utterance_ms
         self._min_utterance_ms = min_utterance_ms
         self.reset()
+
+    @classmethod
+    def with_silero(
+        cls,
+        silence_ms: int,
+        max_utterance_ms: int,
+        min_utterance_ms: int = 250,
+        *,
+        loader: _SileroLoader | None = None,
+    ) -> VadSegmenter:
+        if loader is None:
+            from silero_vad import load_silero_vad
+
+            loader = load_silero_vad
+
+        return cls(
+            scorer=_SileroScorer(loader(onnx=True)),
+            silence_ms=silence_ms,
+            max_utterance_ms=max_utterance_ms,
+            min_utterance_ms=min_utterance_ms,
+        )
 
     def push(self, frame: AudioFrame) -> Utterance | None:
         self._pending.extend(frame.pcm_s16le)
