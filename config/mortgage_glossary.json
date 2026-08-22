@@ -1,0 +1,42 @@
+{
+  "terms": [
+    {
+      "en": "cash-out refinance",
+      "es": [
+        "refinanciamiento con retiro de efectivo",
+        "sacar dinero de mi casa"
+      ],
+      "preferred_en": "cash-out refinance"
+    },
+    {
+      "en": "loan officer",
+      "es": ["oficial de préstamos"],
+      "preferred_en": "loan officer"
+    },
+    {
+      "en": "closing costs",
+      "es": ["costos de cierre"],
+      "preferred_en": "closing costs"
+    },
+    {
+      "en": "interest rate",
+      "es": ["tasa de interés"],
+      "preferred_en": "interest rate"
+    },
+    {
+      "en": "monthly payment",
+      "es": ["pago mensual"],
+      "preferred_en": "monthly payment"
+    },
+    {
+      "en": "down payment",
+      "es": ["pago inicial"],
+      "preferred_en": "down payment"
+    },
+    {
+      "en": "preapproval",
+      "es": ["preaprobación"],
+      "preferred_en": "preapproval"
+    }
+  ]
+}
