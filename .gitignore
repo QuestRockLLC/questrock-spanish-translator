@@ -1,0 +1,16 @@
+.superpowers/
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+out/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+electron/release/
+native/macos/.build/
