@@ -5,11 +5,11 @@
 **Goal:** Ship a local Electron + Python sidecar that captures system-audio loopback on macOS and Windows, transcribes Spanish with faster-whisper, translates with glossary-aware GPT-4.1-mini, and shows compact click-through captions.
 
 **Architecture:** Electron is UI only (control window + click-through overlay).
-A FastAPI sidecar on 127.0.0.1 owns WASAPI / ScreenCaptureKit capture, Silero VAD, Whisper, and OpenAI.
+A FastAPI sidecar on 127.0.0.1 owns WASAPI / Core Audio tap capture, Silero VAD, Whisper, and OpenAI.
 The UI WebSocket is JSON only.
 PCM never enters Electron.
 
-**Tech Stack:** Electron, electron-vite, React, TypeScript strict, Python 3.12, uv, FastAPI, WebSockets, faster-whisper, silero-vad, OpenAI SDK, ScreenCaptureKit (Swift helper), pyaudiowpatch (Windows).
+**Tech Stack:** Electron, electron-vite, React, TypeScript strict, Python 3.12, uv, FastAPI, WebSockets, faster-whisper, silero-vad, OpenAI SDK, Core Audio tap (Swift helper), pyaudiowpatch (Windows), electron-builder, PyInstaller, electron-updater.
 
 **Spec:** `docs/superpowers/specs/2026-08-22-spanish-call-assistant-design.md`
 
@@ -17,18 +17,22 @@ PCM never enters Electron.
 
 Phase 1 tasks **1-18 are implemented** (sidecar, dual-OS capture backends, VAD, Whisper, translator, Electron control + overlay).
 The Mac live loop has run: Whisper processed speech and OpenAI returned translations.
+Local unsigned Mac DMG packaging has been built.
+Shipped tags: `v0.1.0`, `v0.1.1` (app version 0.1.1).
+Release workflow builds both OS installers, then one job publishes a single GitHub Release.
 
 | Item | State |
 | --- | --- |
 | Tasks 1-18 | Done |
-| Task 19 README / fixtures | Done. Logging allowlist exists. `tests/test_logging.py` is still missing |
-| Task 20 Mac smoke | Done enough to see transcription + OpenAI 200s. Not a signed installer |
+| Task 19 README / fixtures | README matches the shipping tree. Logging allowlist exists. `tests/test_logging.py` is still missing |
+| Task 20 Mac smoke | Done (transcription + translation). Not a signed installer |
 | Task 20 Windows smoke | Not done |
-| Packaged sidecar + electron-builder | Code is in the tree. No published GitHub Release yet |
-| In-app Update now + tag CI + Pages | Code is in the tree. Repo is not created. Unsigned |
+| Packaged sidecar + electron-builder | Mac DMG built locally. Windows installer is built in CI on `windows-latest` |
+| In-app Update now + tag CI + Pages | In tree. Tags `v0.1.0` / `v0.1.1`. One Release per tag (`publish` job) |
+| Code signing | Documented in `docs/CODE_SIGNING.md`. `identity: null` and `CSC_IDENTITY_AUTO_DISCOVERY=false` until certs exist |
 | Phases 2-5 | Not started |
 
-Left: Windows proof, logging-guard test, `gh auth login` + public repo + first tag, Apple/Windows signing, then Phase 2 Zoom tap.
+Left: Windows proof on hardware, logging-guard test, confirm v0.1.1 Release assets, Apple/Windows signing, then Phase 2 Zoom tap.
 
 Historical TDD checkboxes below are the original recipe.
 They are not a live tracker.

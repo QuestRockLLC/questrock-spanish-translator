@@ -1,7 +1,10 @@
 # Code signing for QuestRock AI Assistant
 
 The app ships unsigned today.
-GitHub Actions still builds installers and the in-app Update now button still downloads them from a public Release.
+GitHub Actions still builds installers when you push a `v*` tag.
+Mac and Windows jobs package with `--publish never` and upload artifacts.
+A third job creates **one** GitHub Release for that tag.
+The in-app Update now button downloads from that Release.
 Signing is what makes macOS Gatekeeper and Windows SmartScreen stop warning users.
 
 Do this when you are ready to sell or hand the app to loan officers who should not fight OS trust dialogs.
@@ -21,8 +24,10 @@ Do this when you are ready to sell or hand the app to loan officers who should n
 - `APPLE_TEAM_ID` - 10-character Team ID
 
 6. Remove `identity: null` from `electron/electron-builder.yml`.
-7. Remove `CSC_IDENTITY_AUTO_DISCOVERY: "false"` from `.github/workflows/release.yml` on the macOS job, or leave it unset so electron-builder can pick the cert.
-8. Push a new version tag. The Mac job should notarize the `.dmg` / `.zip`.
+7. Remove `CSC_IDENTITY_AUTO_DISCOVERY: "false"` from `.github/workflows/release.yml` on the macOS **package** job, or leave it unset so electron-builder can pick the cert.
+8. Push a new version tag.
+   The Mac package job should sign/notarize the `.dmg` / `.zip`.
+   The `publish` job still only uploads those files to a single Release.
 
 After that, first launch on a Mac should not require right-click Open.
 
@@ -38,8 +43,10 @@ After that, first launch on a Mac should not require right-click Open.
 
 If you sign Mac and Windows in the same workflow, use one `CSC_LINK` per OS job by splitting secrets (`MAC_CSC_LINK` / `WIN_CSC_LINK`) and mapping them to `CSC_LINK` in that job.
 
-4. Remove `CSC_IDENTITY_AUTO_DISCOVERY: "false"` from the Windows job.
+4. Remove `CSC_IDENTITY_AUTO_DISCOVERY: "false"` from the Windows **package** job.
 5. Push a new version tag.
+   Signing happens during `electron-builder --win`.
+   The `publish` job still creates one Release.
 
 ## Until you have certs
 

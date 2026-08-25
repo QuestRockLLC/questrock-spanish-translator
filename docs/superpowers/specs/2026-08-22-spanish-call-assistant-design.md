@@ -1,7 +1,12 @@
 # QuestRock Spanish Call Assistant - Phase 1 Design
 
 Date: 2026-08-22
-Status: Phase 1 live loop implemented on macOS. Packaging and GitHub updates are coded, not published.
+Status: Phase 1 Mac live loop works (capture, Whisper, glossary translation).
+Local unsigned Mac DMG packaging works.
+App version `0.1.1` (tags `v0.1.0`, `v0.1.1`).
+Release CI builds both OS artifacts then creates a single GitHub Release per tag.
+Windows live loop is not proven on this machine.
+Signing is not done.
 Product: QuestRock AI Assistant (QuestRock LLC)
 
 This spec is the locked design for Phase 1 of the Spanish Call Assistant.
@@ -68,9 +73,9 @@ Electron (UI shell)
     |
     |  WebSocket JSON  ws://127.0.0.1:<port>/v1/calls
     v
-Python sidecar (FastAPI, uv)
+Python sidecar (FastAPI; `uv` in dev, PyInstaller in the installer)
   SessionManager -> CallSession (isolated per call_session_id)
-    AudioCapture (WASAPI | ScreenCaptureKit)
+    AudioCapture (WASAPI | Core Audio system tap)
     VadSegmenter (Silero)
     WhisperTranscriber (faster-whisper small, warm for the call)
     MortgageTranslator (OpenAI + glossary)
@@ -218,10 +223,10 @@ Windows backend: WASAPI loopback in-process (shared mode).
 Enumerate render devices and expose each as a loopback source.
 The user picks the same output device Zoom Phone is using (headset vs speakers).
 
-macOS backend: ScreenCaptureKit system-audio helper.
+macOS backend: Core Audio system tap helper (`CATapDescription` global stereo tap, macOS 14.2+).
 A small native helper (`native/macos/AudioTap`) captures system audio and writes raw PCM16 to stdout.
 Python supervises the process and resamples to 16 kHz mono if the helper emits another rate.
-The helper must request Screen Recording permission.
+The helper still requests Screen Recording permission (TCC for system audio).
 `list_devices` on macOS Phase 1 returns at least one device: `system-audio` / `System Audio`.
 
 Capture backends resample to 16 kHz mono before emitting frames.
@@ -425,7 +430,10 @@ ai/
   translation/
 config/
   mortgage_glossary.json
-native/macos/             # ScreenCaptureKit PCM helper
+native/macos/             # Core Audio tap PCM helper (AudioTap.swift)
+packaging/                # PyInstaller spec and sidecar bundle script
+.github/workflows/        # v* tag release builds
+docs/                     # GitHub Pages download page + CODE_SIGNING.md
 fixtures/audio/           # Spanish mortgage sample WAV(s) for manual tests
 tests/
 docs/superpowers/specs/
@@ -454,12 +462,13 @@ Electron:
 | Name | Default | Purpose |
 | --- | --- | --- |
 | `GATEWAY_URL` | `ws://127.0.0.1:<spawned-port>/v1/calls` | UI gateway |
-| `SIDECAR_COMMAND` | `uv run questrock-sidecar` | How main spawns Python |
+| `SIDECAR_COMMAND` | Dev: `uv run questrock-sidecar`. Packaged: extraResources `sidecar/questrock-sidecar` | How main spawns Python |
 
 ## 14. Risks
 
 1. macOS system-audio capture requires Screen Recording permission and a native helper.
-   If ScreenCaptureKit cannot capture Zoom Phone later, Phase 2 should switch to a per-process audio tap on macOS 14.4+ without changing `AudioCapture`.
+   Phase 1 uses a Core Audio global system tap, not ScreenCaptureKit.
+   Phase 2 should switch to a per-process tap on the Zoom Phone process without changing `AudioCapture`.
 2. Loopback captures whatever the selected output device plays.
    If the LO's headset is not the selected device, the overlay will be silent or will capture the wrong mix.
    The device picker is part of the product, not a developer tool.
@@ -488,15 +497,18 @@ Electron:
 
 Done on this Mac:
 
-- Live loop: device list, Start/Stop, ScreenCaptureKit capture, VAD, Whisper `small`, glossary translation, overlay captions.
-- Sidecar + Electron packaging code (`npm run dist:mac` / `dist:win`).
-- GitHub Release auto-update code (tag workflow, Pages download page, in-app Update now). Unsigned.
+- Live loop: device list, Start/Stop, Core Audio tap capture, VAD, Whisper `small`, glossary translation, overlay captions.
+- Listening status reports capture signal level.
+- Local unsigned `npm run dist:mac` DMG (sidecar is PyInstaller onedir + AudioTap).
+- GitHub Release auto-update (tag workflow, Pages download page, in-app Update now). Unsigned.
+- Tags `v0.1.0` and `v0.1.1`.
+- CI: Mac/Windows package with `--publish never`, then one `gh release create` job so installer URLs stay stable.
 
 Still open for Phase 1:
 
-- Windows live-loop proof and a Windows-built installer.
+- Windows live-loop proof (run `npm run dist:win` on a Windows PC and play Spanish through speakers).
 - `tests/test_logging.py` (Task 19 logging guard).
-- Public GitHub repo, Pages, and first `v*` Release (needs `gh auth login` then `bash scripts/create-github-repo.sh`).
+- Confirm the `v0.1.1` Actions run attached both OS installers to one Release.
 - Code signing / notarization (`docs/CODE_SIGNING.md`).
 
 Later phases (not started): Zoom process tap (2), Modal GPU (3), Supabase (4), mortgage intent (5).
