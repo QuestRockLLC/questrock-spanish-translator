@@ -111,18 +111,28 @@ class CallSession:
         finally:
             if self._on_stop is not None:
                 self._on_stop()
+            self._emit(
+                Status(
+                    call_session_id=self.call_session_id,
+                    state="idle",
+                )
+            )
 
     async def _process(self, utterance: Utterance) -> None:
+        if self._stopped:
+            return
         self._status("transcribing")
         transcription = await asyncio.to_thread(
             self._whisper.transcribe,
             utterance.pcm_s16le,
         )
-        if transcription is None:
+        if self._stopped or transcription is None:
             return
 
         self._status("translating")
         translation = await self._translator.translate(transcription.text)
+        if self._stopped:
+            return
         self._emit(
             Transcript(
                 call_session_id=self.call_session_id,
@@ -138,6 +148,8 @@ class CallSession:
         )
 
     def _status(self, state: str, detail: str | None = None) -> None:
+        if self._stopped:
+            return
         self._emit(
             Status(call_session_id=self.call_session_id, state=state, detail=detail)
         )

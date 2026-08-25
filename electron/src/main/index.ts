@@ -1,10 +1,10 @@
 import { app, ipcMain, type BrowserWindow } from 'electron'
 import path from 'node:path'
-import { autoUpdater } from 'electron-updater'
 import { GatewayClient } from './gateway'
 import { registerHotkeys } from './hotkeys'
 import { pickPort, spawnSidecar, waitForHealth } from './sidecar'
-import { attachUpdater, shouldCheckForUpdates, type AutoUpdaterLike } from './updater'
+import { attachUpdater, shouldCheckForUpdates } from './updater'
+import { loadAutoUpdater } from './updaterLoad'
 import { createWindows, setOverlayPreset } from './windows'
 import type { OverlayPreset } from './overlayBounds'
 import type { ServerMessage } from '../shared/protocol'
@@ -61,7 +61,7 @@ async function boot(): Promise<void> {
     setOverlayPreset(preset)
   })
   if (shouldCheckForUpdates(app.isPackaged)) {
-    const handle = attachUpdater(autoUpdater as AutoUpdaterLike, (state) => {
+    const handle = attachUpdater(loadAutoUpdater(), (state) => {
       control.webContents.send('questrock:update', state)
     })
     ipcMain.handle('questrock:installUpdate', async () => {

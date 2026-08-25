@@ -35,6 +35,10 @@ function OverlayApp() {
         }
         const label = map[msg.state] ?? msg.state
         setStatus(msg.detail ? `${label} (${msg.detail})` : label)
+        if (msg.state === 'idle') {
+          setOriginalText('')
+          setTranslatedText(null)
+        }
       }
       if (msg.type === 'error') {
         setStatus(msg.message)

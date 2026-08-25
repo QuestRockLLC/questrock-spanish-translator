@@ -10,8 +10,10 @@ Signing is not done.
 Product: QuestRock AI Assistant (QuestRock LLC)
 
 This spec is the locked design for Phase 1 of the Spanish Call Assistant.
-Later phases (Zoom-specific capture, Modal workers, Supabase auth, mortgage intent) must plug into the seams defined here.
+Later phases (Zoom-specific capture, Modal workers, login, mortgage intent) must plug into the seams defined here.
 They are out of scope for the first implementation.
+This product never stores transcripts.
+Zoom Phone already stores the call.
 
 ## 1. Problem
 
@@ -37,7 +39,8 @@ Success for Phase 1: pick a loopback device, start a session, play Spanish audio
 - Electron never sends or receives PCM.
 - Whisper and OpenAI run on completed utterances (VAD), not on every audio packet.
 - Audio streams continuously in ~20 ms PCM frames.
-- Phase 1 has no auth, no cloud, no transcript persistence, and no intent engine.
+- Phase 1 has no auth, no cloud, and no intent engine.
+- Transcripts are never persisted in this product (any phase). Zoom Phone is the system of record.
 - Inference stack is faster-whisper `small` plus OpenAI `gpt-4.1-mini`.
 - Mortgage glossary lives in external JSON.
 - No audio is written to disk.
@@ -46,8 +49,9 @@ Success for Phase 1: pick a loopback device, start a session, play Spanish audio
 
 - Zoom Phone process-specific tap (Phase 2).
 - Modal GPU workers (Phase 3).
-- Supabase, login, and durable transcript storage (Phase 4).
+- Login / LO identity (Phase 4). No user database is required for captions.
 - Intent detection and suggested follow-up questions (Phase 5).
+- Durable transcript, call-session, or audio storage in any phase. Zoom Phone already stores the call.
 - TTS / spoken translation.
 - Chromium `getDisplayMedia` / `desktopCapturer` audio.
 - A second ASR engine (whisper.cpp, Deepgram, AssemblyAI).
@@ -363,6 +367,7 @@ Phase 1 controls:
 - `OPENAI_API_KEY` lives in `.env`, loaded only in the sidecar.
 - Renderer processes never receive the API key.
 - No audio files, no wav dumps, no debug recordings unless `QUESTROCK_DEBUG_AUDIO=1` (off by default; if ever enabled, files go to a temp dir and are deleted on session end).
+- No durable transcript store. Overlay captions are ephemeral. Zoom Phone keeps the call recording/transcript.
 - Structured JSON logs.
 - Log fields at info: `call_session_id`, `state`, `latency_ms`, `error.code`.
 - Do not log `original_text` or `translated_text` at info.
@@ -490,8 +495,8 @@ Electron:
 - Playing Spanish audio through the selected output produces a compact overlay caption: Spanish verifier + English primary, in about 2-3 seconds after the utterance ends.
 - Translation uses the mortgage glossary (cash-out example translates as cash-out, not "take money from my house").
 - Stop releases the capture device.
-- No audio is stored.
-- No auth, Modal, Supabase, or intent code ships.
+- No audio or transcripts are stored.
+- No auth, Modal, or intent code ships.
 
 ## 16. Progress (2026-08-26)
 
@@ -511,4 +516,5 @@ Still open for Phase 1:
 - Confirm the `v0.1.1` Actions run attached both OS installers to one Release.
 - Code signing / notarization (`docs/CODE_SIGNING.md`).
 
-Later phases (not started): Zoom process tap (2), Modal GPU (3), Supabase (4), mortgage intent (5).
+Later phases (not started): Zoom process tap (2), Modal GPU (3), login if needed (4), mortgage intent (5).
+Never: a QuestRock transcript database. Zoom Phone already stores the call.

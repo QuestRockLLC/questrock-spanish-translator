@@ -41,6 +41,7 @@ async def test_session_emits_final_transcript_and_stops_capture() -> None:
         "listening",
         "transcribing",
         "translating",
+        "idle",
     ]
     transcripts = [event for event in events if isinstance(event, Transcript)]
     assert len(transcripts) == 1
@@ -133,6 +134,7 @@ def test_stop_is_idempotent_and_stops_capture() -> None:
         devices=[LoopbackDevice("d1", "Speakers", "loopback")],
         frames=[],
     )
+    events: list[object] = []
     session = CallSession(
         call_session_id="abc",
         device_id="d1",
@@ -140,13 +142,16 @@ def test_stop_is_idempotent_and_stops_capture() -> None:
         vad=FakeVad(emit_on_nth=1, pcm=b""),
         whisper=FakeWhisper(text=None),
         translator=FakeTranslator(text=None),
-        emit=lambda _event: None,
+        emit=events.append,
     )
 
     session.stop()
     session.stop()
 
     assert capture.stopped is True
+    idle = [e for e in events if isinstance(e, Status) and e.state == "idle"]
+    assert len(idle) == 1
+    assert idle[0].call_session_id == "abc"
 
 
 def test_session_manager_discards_stopped_session() -> None:

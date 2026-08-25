@@ -31,7 +31,10 @@ class FakeSession:
             await asyncio.sleep(0)
 
     def stop(self) -> None:
+        if self.stopped:
+            return
         self.stopped = True
+        self._emit(Status(call_session_id=self.call_session_id, state="idle"))
 
 
 class RecordingSessionFactory:
@@ -103,6 +106,7 @@ def test_hello_start_stop_happy_path() -> None:
         started = websocket.receive_json()
         status = websocket.receive_json()
         websocket.send_json({"type": "stop_call"})
+        idle = websocket.receive_json()
 
     assert started["type"] == "session_started"
     assert started["device_id"] == "d1"
@@ -110,6 +114,11 @@ def test_hello_start_stop_happy_path() -> None:
         "type": "status",
         "call_session_id": started["call_session_id"],
         "state": "listening",
+    }
+    assert idle == {
+        "type": "status",
+        "call_session_id": started["call_session_id"],
+        "state": "idle",
     }
     assert factory.sessions[0].stopped is True
 

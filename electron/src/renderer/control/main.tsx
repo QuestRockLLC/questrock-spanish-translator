@@ -40,6 +40,10 @@ function App() {
         setStatus('Starting session')
       }
       if (msg.type === 'status') {
+        if (msg.state === 'idle') {
+          setStatus('Idle')
+          return
+        }
         setStatus(msg.detail ? `${msg.state} (${msg.detail})` : msg.state)
       }
       if (msg.type === 'error') {
@@ -85,7 +89,15 @@ function App() {
         >
           Start Spanish mode
         </button>
-        <button type="button" onClick={() => void window.questrock?.stopCall()}>
+        <button
+          type="button"
+          onClick={() => {
+            setStatus('Idle')
+            void window.questrock?.stopCall().catch((err: unknown) => {
+              setStatus(err instanceof Error ? err.message : 'Stop failed')
+            })
+          }}
+        >
           Stop
         </button>
       </div>

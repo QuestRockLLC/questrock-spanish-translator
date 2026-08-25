@@ -25,7 +25,8 @@ There is no TTS, login, cloud capture, or Zoom-process tap in this phase.
 Phase 1 live loop has been run on this Mac (system audio, Spanish video, captions, OpenAI translation).
 Windows live loop and a Windows-built installer are not proven here.
 
-Out of Phase 1: Zoom Phone process tap, Modal GPU, Supabase/auth, mortgage intent.
+Out of Phase 1: Zoom Phone process tap, Modal GPU, login, mortgage intent.
+This app does not store transcripts. Zoom Phone already does.
 
 ## Development
 

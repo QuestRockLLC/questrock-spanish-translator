@@ -30,7 +30,7 @@ Release workflow builds both OS installers, then one job publishes a single GitH
 | Packaged sidecar + electron-builder | Mac DMG built locally. Windows installer is built in CI on `windows-latest` |
 | In-app Update now + tag CI + Pages | In tree. Tags `v0.1.0` / `v0.1.1`. One Release per tag (`publish` job) |
 | Code signing | Documented in `docs/CODE_SIGNING.md`. `identity: null` and `CSC_IDENTITY_AUTO_DISCOVERY=false` until certs exist |
-| Phases 2-5 | Not started |
+| Phases 2-5 | Not started. Phase 4 is login only. No transcript DB in any phase (Zoom Phone stores the call) |
 
 Left: Windows proof on hardware, logging-guard test, confirm v0.1.1 Release assets, Apple/Windows signing, then Phase 2 Zoom tap.
 
@@ -51,7 +51,8 @@ They are not a live tracker.
 - Overlay copy: English primary, Spanish verifier, statuses exactly as in the spec.
 - Translation failure English line is exactly `Translation unavailable`.
 - Tests pass with no network and no real DB.
-- Phase 1 ships no auth, Modal, Supabase, or intent code.
+- Phase 1 ships no auth, Modal, or intent code.
+- Never persist transcripts or call audio. Zoom Phone is the system of record.
 - Do not use Chromium `getDisplayMedia` for capture.
 - Do not use an em dash in user-facing copy.
 
@@ -1737,7 +1738,8 @@ EOF
 | 127.0.0.1, no audio persistence, safe logs | 1, 19 |
 | Isolated CallSession | 9 |
 | Spanish kept if translation fails | 4, 9, 18 |
-| No auth / Modal / Supabase / intent | all (omitted) |
+| No auth / Modal / intent | all (omitted) |
+| No transcript database | all (Zoom Phone stores the call) |
 | Manual 2-3s overlay check | 20 |
 
 **Placeholder scan:** none remaining in task steps.
