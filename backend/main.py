@@ -35,11 +35,16 @@ def create_app(
 
 
 def run() -> None:
+    import argparse
+
     configure_logging()
     settings = Settings()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=settings.port)
+    args, _unknown = parser.parse_known_args()
     uvicorn.run(
         create_app(session_factory=production_session_factory()),
         host="127.0.0.1",
-        port=settings.port,
+        port=args.port,
         log_config=None,
     )

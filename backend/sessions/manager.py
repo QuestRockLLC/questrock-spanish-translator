@@ -24,9 +24,14 @@ def production_dependencies(
     settings: Settings | None = None,
 ) -> SessionDependencies:
     settings = settings or Settings()
+    whisper_cache: dict[str, WhisperTranscriber] = {}
 
     def load_whisper() -> WhisperTranscriber:
-        return WhisperTranscriber.load(settings.whisper_model)
+        cached = whisper_cache.get(settings.whisper_model)
+        if cached is None:
+            cached = WhisperTranscriber.load(settings.whisper_model)
+            whisper_cache[settings.whisper_model] = cached
+        return cached
 
     def load_translator() -> MortgageTranslator:
         from openai import AsyncOpenAI
