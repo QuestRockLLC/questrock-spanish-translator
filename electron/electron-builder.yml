@@ -1,0 +1,44 @@
+appId: com.questrock.ai-assistant
+productName: QuestRock AI Assistant
+copyright: Copyright Abbas Saeed Zaidi
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asar: true
+extraResources:
+  - from: ../packaging/dist/sidecar
+    to: sidecar
+    filter:
+      - "**/*"
+publish:
+  provider: github
+  owner: abbassaeedza
+  repo: questrock-spanish-whispy
+  releaseType: release
+mac:
+  category: public.app-category.business
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSScreenCaptureUsageDescription: QuestRock captures system audio so the loan officer can see English captions of Spanish speech.
+    NSAudioCaptureUsageDescription: QuestRock captures system audio for live Spanish captions.
+  identity: null
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: QuestRock-AI-Assistant-Setup-${version}.${ext}

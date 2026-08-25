@@ -1,5 +1,6 @@
 .superpowers/
 .worktrees/
+.cursor/
 .env
 .env.*
 !.env.example
@@ -13,6 +14,9 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+*.original.md
 electron/release/
+packaging/dist/
+packaging/work/
 native/macos/.build/
 native/macos/AudioTap

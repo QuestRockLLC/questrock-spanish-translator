@@ -19,3 +19,8 @@ it('shows Translation unavailable when translatedText is null', () => {
   render(<Overlay status="Listening" originalText="Hola" translatedText={null} />)
   expect(screen.getByText('Translation unavailable')).toBeTruthy()
 })
+
+it('shows waiting copy when idle with no transcript', () => {
+  render(<Overlay status="Idle" originalText="" translatedText={null} />)
+  expect(screen.getByText('Waiting for speech')).toBeTruthy()
+})

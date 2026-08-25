@@ -21,7 +21,13 @@ export class GatewayClient {
       this.ws.on('error', reject)
       this.ws.on('message', (data) => {
         const raw = JSON.parse(String(data)) as unknown
-        const msg = parseServerMessage(raw)
+        let msg: ServerMessage
+        try {
+          msg = parseServerMessage(raw)
+        } catch (err) {
+          console.error('[gateway] dropped server message', err, raw)
+          return
+        }
         for (const fn of this.listeners) {
           fn(msg)
         }
@@ -42,6 +48,9 @@ export class GatewayClient {
   }
 
   private send(obj: object): void {
-    this.ws?.send(JSON.stringify(obj))
+    if (this.ws == null || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('Not connected to the local assistant service')
+    }
+    this.ws.send(JSON.stringify(obj))
   }
 }

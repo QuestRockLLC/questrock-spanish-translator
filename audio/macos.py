@@ -3,15 +3,20 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
 from collections.abc import Callable, Iterator
-from pathlib import Path
 from typing import BinaryIO, Protocol
 
 from audio.resample import TARGET_SAMPLE_RATE, to_16k_mono_s16le
 from audio.types import AudioFrame, LoopbackDevice
+from backend.paths import macos_helper_path
 
 FRAME_DURATION_MS = 20
-HELPER_PATH = Path(__file__).resolve().parent.parent / "native" / "macos" / "AudioTap"
+PERMISSION_MESSAGE = (
+    "macOS Screen Recording permission is required for system audio. "
+    "Open System Settings > Privacy & Security > Screen Recording, "
+    "enable it for Electron or Terminal, then click Start again."
+)
 
 
 class CapturePermissionError(RuntimeError):
@@ -39,10 +44,12 @@ def _start_process(command: list[str]) -> Proc:
 class MacosScreenCaptureKitCapture:
     def __init__(self, proc_factory: ProcFactory | None = None) -> None:
         self._proc_factory = proc_factory or _start_process
-        self._build_helper = proc_factory is None
+        self._build_helper = proc_factory is None and not getattr(sys, "frozen", False)
         self._proc: Proc | None = None
         self._sample_rate = 0
         self._channels = 0
+        self._stderr = b""
+        self._stderr_thread: threading.Thread | None = None
 
     def list_devices(self) -> list[LoopbackDevice]:
         return [LoopbackDevice("system-audio", "System Audio", "loopback")]
@@ -50,10 +57,27 @@ class MacosScreenCaptureKitCapture:
     def start(self, device_id: str) -> None:
         if device_id != "system-audio":
             raise KeyError(device_id)
-        if self._build_helper and sys.platform == "darwin" and not HELPER_PATH.exists():
-            subprocess.run([str(HELPER_PATH.with_name("build.sh"))], check=True)
+        helper = macos_helper_path()
+        if self._build_helper and sys.platform == "darwin":
+            source = helper.with_suffix(".swift")
+            stale = (
+                helper.is_file()
+                and source.is_file()
+                and source.stat().st_mtime > helper.stat().st_mtime
+            )
+            if not helper.is_file() or stale:
+                subprocess.run([str(helper.with_name("build.sh"))], check=True)
+            if not helper.is_file():
+                raise RuntimeError("AudioTap helper is missing after build")
 
-        self._proc = self._proc_factory([str(HELPER_PATH)])
+        self._stderr = b""
+        self._proc = self._proc_factory([str(helper)])
+        self._stderr_thread = threading.Thread(
+            target=self._pump_stderr,
+            args=(self._proc.stderr,),
+            daemon=True,
+        )
+        self._stderr_thread.start()
         header_bytes = self._proc.stdout.readline()
         if not header_bytes:
             self._raise_for_permission_error()
@@ -86,8 +110,19 @@ class MacosScreenCaptureKitCapture:
             return
         self._proc.terminate()
         self._proc.wait(timeout=5)
+        if self._stderr_thread is not None:
+            self._stderr_thread.join(timeout=1)
+            self._stderr_thread = None
         self._proc = None
 
+    def _pump_stderr(self, stream: BinaryIO) -> None:
+        try:
+            self._stderr = stream.read() or b""
+        except OSError:
+            self._stderr = b""
+
     def _raise_for_permission_error(self) -> None:
-        if self._proc is not None and b"capture_permission" in self._proc.stderr.read():
-            raise CapturePermissionError("macOS screen and system audio capture permission is required")
+        if self._stderr_thread is not None:
+            self._stderr_thread.join(timeout=1)
+        if b"capture_permission" in self._stderr:
+            raise CapturePermissionError(PERMISSION_MESSAGE)

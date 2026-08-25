@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QuestRock AI Assistant</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 3rem auto;
+        padding: 0 1.25rem;
+        color: #1d1d1f;
+        line-height: 1.45;
+      }
+      a.primary {
+        display: inline-block;
+        margin: 1rem 0 0.5rem;
+        padding: 0.7rem 1.1rem;
+        background: #1d1d1f;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 8px;
+      }
+      .muted {
+        color: #6e6e73;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>QuestRock AI Assistant</h1>
+    <p>Local Spanish call captions for QuestRock loan officers. This page picks the installer for your computer.</p>
+    <p id="status" class="muted">Looking up the latest release…</p>
+    <p><a id="primary" class="primary" hidden href="#">Download</a></p>
+    <p><a id="other" class="muted" hidden href="#">Other operating system</a></p>
+    <script type="module">
+      import { detectOs, githubRepoFromPagesLocation, pickInstaller } from './download.js'
+
+      const status = document.getElementById('status')
+      const primary = document.getElementById('primary')
+      const other = document.getElementById('other')
+
+      async function resolveRepo() {
+        if (location.hostname.endsWith('github.io')) {
+          return githubRepoFromPagesLocation(location.hostname, location.pathname)
+        }
+        const res = await fetch('repo.json')
+        return await res.json()
+      }
+
+      function labelFor(os) {
+        if (os === 'mac') return 'Download for Mac'
+        if (os === 'windows') return 'Download for Windows'
+        return 'Download'
+      }
+
+      try {
+        const repo = await resolveRepo()
+        const os = detectOs(navigator.userAgent)
+        const res = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}/releases/latest`)
+        if (res.status === 404) {
+          status.textContent = 'No installer published'
+          throw new Error('no release')
+        }
+        if (!res.ok) {
+          status.textContent = 'Could not read GitHub Releases'
+          throw new Error('github api')
+        }
+        const body = await res.json()
+        const mine = pickInstaller(body.assets ?? [], os)
+        const theirs = pickInstaller(body.assets ?? [], os === 'mac' ? 'windows' : 'mac')
+        if (!mine) {
+          status.textContent = 'No installer published'
+        } else {
+          status.textContent = `Latest: ${body.tag_name}`
+          primary.hidden = false
+          primary.href = mine.browser_download_url
+          primary.textContent = labelFor(os)
+        }
+        if (theirs) {
+          other.hidden = false
+          other.href = theirs.browser_download_url
+          other.textContent = os === 'mac' ? 'Windows installer' : 'Mac installer'
+        }
+      } catch (err) {
+        if (status.textContent === 'Looking up the latest release…') {
+          status.textContent = 'No installer published'
+        }
+      }
+    </script>
+  </body>
+</html>

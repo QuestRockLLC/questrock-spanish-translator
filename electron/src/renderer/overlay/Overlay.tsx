@@ -17,7 +17,10 @@ const wrap: CSSProperties = {
 } as CSSProperties
 
 export function Overlay({ status, originalText, translatedText }: OverlayProps) {
-  const english = translatedText ?? 'Translation unavailable'
+  const english =
+    originalText === '' && translatedText == null
+      ? 'Waiting for speech'
+      : (translatedText ?? 'Translation unavailable')
   return (
     <div style={wrap}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#8fb4d9', marginBottom: 6 }}>

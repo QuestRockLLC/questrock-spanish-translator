@@ -4,12 +4,14 @@ import asyncio
 from collections.abc import Callable, Iterator
 from uuid import uuid4
 
+import numpy as np
+
 from ai.translation.translator import MortgageTranslator
 from ai.vad.segmenter import Utterance, VadSegmenter
 from ai.whisper.transcriber import WhisperTranscriber
 from audio.factory import AudioCapture
 from audio.types import AudioFrame
-from backend.websocket.protocol import ServerMessage, Status, Transcript
+from backend.websocket.protocol import ErrorMessage, ServerMessage, Status, Transcript
 
 
 def _next_frame(frames: Iterator[AudioFrame]) -> AudioFrame | None:
@@ -38,6 +40,7 @@ class CallSession:
         self._emit = emit
         self._on_stop = on_stop
         self._stopped = False
+        self._frames_seen = 0
 
     async def run(self) -> None:
         if self._stopped:
@@ -47,15 +50,57 @@ class CallSession:
             self._capture.start(self.device_id)
             self._status("listening")
             frames = self._capture.frames()
+            first = await asyncio.wait_for(
+                asyncio.to_thread(_next_frame, frames),
+                timeout=5,
+            )
+            if first is None:
+                raise RuntimeError("system audio capture ended before any audio arrived")
+            await self._handle_frame(first)
             while not self._stopped:
                 frame = await asyncio.to_thread(_next_frame, frames)
                 if frame is None:
                     break
-                utterance = self._vad.push(frame)
-                if utterance is not None:
-                    await self._process(utterance)
+                await self._handle_frame(frame)
+        except TimeoutError:
+            self._emit(
+                ErrorMessage(
+                    code="session",
+                    message=(
+                        "No system audio arrived. Keep Screen Recording enabled for "
+                        "Electron and AudioTap, play sound through the Mac speakers "
+                        "or current output device, then click Start again."
+                    ),
+                )
+            )
+        except Exception as exc:
+            self._emit(
+                ErrorMessage(
+                    code="session",
+                    message=str(exc),
+                )
+            )
         finally:
             self.stop()
+
+    async def _handle_frame(self, frame: AudioFrame) -> None:
+        self._frames_seen += 1
+        if self._frames_seen == 1 or self._frames_seen % 25 == 0:
+            level = _peak_level(frame.pcm_s16le)
+            self._status("listening", detail=f"signal {level:.0%}")
+        utterance = self._vad.push(frame)
+        if utterance is None:
+            return
+        try:
+            await self._process(utterance)
+        except Exception as exc:
+            self._emit(
+                ErrorMessage(
+                    code="session",
+                    message=str(exc),
+                )
+            )
+            self._status("listening")
 
     def stop(self) -> None:
         if self._stopped:
@@ -92,5 +137,15 @@ class CallSession:
             )
         )
 
-    def _status(self, state: str) -> None:
-        self._emit(Status(call_session_id=self.call_session_id, state=state))
+    def _status(self, state: str, detail: str | None = None) -> None:
+        self._emit(
+            Status(call_session_id=self.call_session_id, state=state, detail=detail)
+        )
+
+
+def _peak_level(pcm_s16le: bytes) -> float:
+    if not pcm_s16le:
+        return 0.0
+    samples = np.frombuffer(pcm_s16le, dtype="<i2").astype(np.float32)
+    peak = float(np.max(np.abs(samples)))
+    return min(1.0, peak / 32768.0)

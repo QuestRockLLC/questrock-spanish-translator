@@ -12,7 +12,6 @@ _model_cache: dict[str, Any] = {}
 
 class WhisperSegment(Protocol):
     text: str
-    avg_log_prob: float
 
 
 class WhisperEngine(Protocol):
@@ -25,6 +24,15 @@ class WhisperEngine(Protocol):
 class TranscriptText:
     text: str
     confidence: float
+
+
+def _segment_avg_logprob(segment: object) -> float:
+    value = getattr(segment, "avg_logprob", None)
+    if value is None:
+        value = getattr(segment, "avg_log_prob", None)
+    if value is None:
+        return -1.0
+    return float(value)
 
 
 def _confidence_from_avg_log_prob(avg_log_prob: float) -> float:
@@ -76,7 +84,7 @@ class WhisperTranscriber:
         log_probs: list[float] = []
         for segment in segments:
             texts.append(segment.text)
-            log_probs.append(segment.avg_log_prob)
+            log_probs.append(_segment_avg_logprob(segment))
 
         text = "".join(texts).strip()
         if not text:

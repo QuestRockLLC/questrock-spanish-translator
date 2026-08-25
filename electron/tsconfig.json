@@ -7,8 +7,9 @@
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "allowJs": true,
     "noEmit": true,
     "types": ["vitest/globals"]
   },
-  "include": ["src", "vitest.config.ts"]
+  "include": ["src", "vitest.config.ts", "../docs/download.js"]
 }

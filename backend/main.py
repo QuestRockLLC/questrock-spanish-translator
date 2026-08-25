@@ -14,13 +14,10 @@ def create_app(
     capture: AudioCapture | None = None,
     session_factory: SessionFactory | None = None,
 ) -> FastAPI:
-    resolved_capture = capture
-
     def capture_provider() -> AudioCapture:
-        nonlocal resolved_capture
-        if resolved_capture is None:
-            resolved_capture = capture_for_platform()
-        return resolved_capture
+        if capture is not None:
+            return capture
+        return capture_for_platform()
 
     app = FastAPI()
     app.include_router(health_router)

@@ -1,21 +1,43 @@
 import { BrowserWindow, screen } from 'electron'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { overlayBounds, type OverlayPreset } from './overlayBounds'
 
 let control: BrowserWindow | null = null
 let overlay: BrowserWindow | null = null
 
+function preloadScript(): string {
+  const cjs = path.join(__dirname, '../preload/index.cjs')
+  const js = path.join(__dirname, '../preload/index.js')
+  const mjs = path.join(__dirname, '../preload/index.mjs')
+  const chosen = [cjs, js, mjs].find((p) => existsSync(p))
+  if (!chosen) {
+    throw new Error(`preload script not found next to ${cjs}`)
+  }
+  return chosen
+}
+
+function attachPreloadDiagnostics(win: BrowserWindow, name: string): void {
+  win.webContents.on('preload-error', (_event, preloadPath, error) => {
+    console.error(`[preload] ${name} failed`, preloadPath, error)
+  })
+}
+
 export function createWindows(): { control: BrowserWindow; overlay: BrowserWindow } {
+  const preload = preloadScript()
   control = new BrowserWindow({
     width: 720,
     height: 640,
     title: 'QuestRock AI Assistant',
+    show: false,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   })
+  attachPreloadDiagnostics(control, 'control')
   overlay = new BrowserWindow({
     ...overlayBounds(screen.getPrimaryDisplay().workArea, 'bottom-right'),
     frame: false,
@@ -23,12 +45,15 @@ export function createWindows(): { control: BrowserWindow; overlay: BrowserWindo
     alwaysOnTop: true,
     skipTaskbar: true,
     focusable: false,
+    show: false,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   })
+  attachPreloadDiagnostics(overlay, 'overlay')
   overlay.setIgnoreMouseEvents(true, { forward: true })
   overlay.setAlwaysOnTop(true, 'screen-saver')
   return { control, overlay }

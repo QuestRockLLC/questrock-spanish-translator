@@ -153,6 +153,44 @@ def test_socket_close_stops_active_session() -> None:
     assert factory.sessions[0].stopped is True
 
 
+class BoomSession:
+    def __init__(self, *, emit: Callable[[ServerMessage], None]) -> None:
+        self._emit = emit
+        self.stopped = False
+
+    async def run(self) -> None:
+        raise RuntimeError("AudioTap exited before sending its format header")
+
+    def stop(self) -> None:
+        self.stopped = True
+
+
+def test_session_run_failure_is_sent_to_client() -> None:
+    def factory(
+        *,
+        call_session_id: str,
+        device_id: str,
+        capture: AudioCapture,
+        emit: Callable[[ServerMessage], None],
+    ) -> BoomSession:
+        del call_session_id, device_id, capture
+        return BoomSession(emit=emit)
+
+    client = TestClient(create_app(capture=make_capture(), session_factory=factory))
+
+    with client.websocket_connect("/v1/calls") as websocket:
+        websocket.send_json({"type": "hello", "protocol_version": 1})
+        websocket.send_json(
+            {"type": "start_call", "device_id": "d1", "language": "spanish"}
+        )
+        started = websocket.receive_json()
+        error = websocket.receive_json()
+
+    assert started["type"] == "session_started"
+    assert error["type"] == "error"
+    assert "AudioTap" in error["message"]
+
+
 def test_unknown_message_returns_safe_protocol_error() -> None:
     borrower_speech = "gano cinco mil dólares"
     client = TestClient(create_app(capture=make_capture()))

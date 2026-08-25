@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+      - name: Build ScreenCaptureKit helper
+        run: bash native/macos/build.sh
+      - name: Install Python sidecar
+        run: uv sync --extra packaging --extra dev
+      - name: Install Electron
+        working-directory: electron
+        run: npm ci
+      - name: Bundle sidecar
+        working-directory: electron
+        run: npm run sidecar
+      - name: Package and publish Mac installer
+        working-directory: electron
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          node ../packaging/check-sidecar.cjs darwin
+          npm run build
+          npx electron-builder --mac --config electron-builder.yml --publish always
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+      - name: Install Python sidecar
+        run: uv sync --extra packaging --extra windows --extra dev
+      - name: Install Electron
+        working-directory: electron
+        run: npm ci
+      - name: Bundle sidecar
+        working-directory: electron
+        run: npm run sidecar
+      - name: Package and publish Windows installer
+        working-directory: electron
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          node ../packaging/check-sidecar.cjs win32
+          npm run build
+          npx electron-builder --win --config electron-builder.yml --publish always

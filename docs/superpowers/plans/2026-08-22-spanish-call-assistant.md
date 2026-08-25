@@ -13,6 +13,26 @@ PCM never enters Electron.
 
 **Spec:** `docs/superpowers/specs/2026-08-22-spanish-call-assistant-design.md`
 
+## Status (2026-08-26)
+
+Phase 1 tasks **1-18 are implemented** (sidecar, dual-OS capture backends, VAD, Whisper, translator, Electron control + overlay).
+The Mac live loop has run: Whisper processed speech and OpenAI returned translations.
+
+| Item | State |
+| --- | --- |
+| Tasks 1-18 | Done |
+| Task 19 README / fixtures | Done. Logging allowlist exists. `tests/test_logging.py` is still missing |
+| Task 20 Mac smoke | Done enough to see transcription + OpenAI 200s. Not a signed installer |
+| Task 20 Windows smoke | Not done |
+| Packaged sidecar + electron-builder | Code is in the tree. No published GitHub Release yet |
+| In-app Update now + tag CI + Pages | Code is in the tree. Repo is not created. Unsigned |
+| Phases 2-5 | Not started |
+
+Left: Windows proof, logging-guard test, `gh auth login` + public repo + first tag, Apple/Windows signing, then Phase 2 Zoom tap.
+
+Historical TDD checkboxes below are the original recipe.
+They are not a live tracker.
+
 ## Global Constraints
 
 - TypeScript `strict: true`.

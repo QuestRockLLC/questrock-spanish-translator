@@ -67,6 +67,18 @@ def test_joins_multiple_segments() -> None:
     assert result.confidence == 0.7
 
 
+def test_reads_faster_whisper_avg_logprob_field() -> None:
+    class Engine:
+        def transcribe(self, audio: np.ndarray, **kwargs: object) -> tuple[object, None]:
+            del audio, kwargs
+            segment = type("S", (), {"text": "Hola", "avg_logprob": -0.2})()
+            return iter([segment]), None
+
+    t = WhisperTranscriber(engine=Engine(), model_name="small")
+    pcm = np.zeros(16000, dtype=np.int16).tobytes()
+    assert t.transcribe(pcm) == TranscriptText(text="Hola", confidence=0.8)
+
+
 def test_confidence_clamped_at_bounds() -> None:
     low = WhisperTranscriber(
         engine=FakeEngine("hola", avg_log_prob=-5.0), model_name="small"

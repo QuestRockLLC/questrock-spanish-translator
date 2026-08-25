@@ -1,7 +1,7 @@
 # QuestRock Spanish Call Assistant - Phase 1 Design
 
 Date: 2026-08-22
-Status: Approved
+Status: Phase 1 live loop implemented on macOS. Packaging and GitHub updates are coded, not published.
 Product: QuestRock AI Assistant (QuestRock LLC)
 
 This spec is the locked design for Phase 1 of the Spanish Call Assistant.
@@ -483,3 +483,20 @@ Electron:
 - Stop releases the capture device.
 - No audio is stored.
 - No auth, Modal, Supabase, or intent code ships.
+
+## 16. Progress (2026-08-26)
+
+Done on this Mac:
+
+- Live loop: device list, Start/Stop, ScreenCaptureKit capture, VAD, Whisper `small`, glossary translation, overlay captions.
+- Sidecar + Electron packaging code (`npm run dist:mac` / `dist:win`).
+- GitHub Release auto-update code (tag workflow, Pages download page, in-app Update now). Unsigned.
+
+Still open for Phase 1:
+
+- Windows live-loop proof and a Windows-built installer.
+- `tests/test_logging.py` (Task 19 logging guard).
+- Public GitHub repo, Pages, and first `v*` Release (needs `gh auth login` then `bash scripts/create-github-repo.sh`).
+- Code signing / notarization (`docs/CODE_SIGNING.md`).
+
+Later phases (not started): Zoom process tap (2), Modal GPU (3), Supabase (4), mortgage intent (5).

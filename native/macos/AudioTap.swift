@@ -1,211 +1,160 @@
-import AudioToolbox
+import AVFoundation
+import CoreAudio
 import CoreGraphics
-import CoreMedia
 import Foundation
-import ScreenCaptureKit
 
 private enum AudioTapError: Error {
     case capturePermission
-    case noDisplay
+    case tapCreate(OSStatus)
+    case aggregateCreate(OSStatus)
+    case ioStart(OSStatus)
     case unsupportedAudioFormat
 }
 
-private final class AudioTap: NSObject, SCStreamDelegate, SCStreamOutput {
-    private let audioQueue = DispatchQueue(label: "AudioTap.audio")
-    private let screenQueue = DispatchQueue(label: "AudioTap.screen")
-    private var stream: SCStream?
+@available(macOS 14.2, *)
+private final class SystemTap {
+    private let queue = DispatchQueue(label: "AudioTap.io")
+    private var tapID = AudioObjectID(kAudioObjectUnknown)
+    private var aggregateID = AudioObjectID(kAudioObjectUnknown)
+    private var ioProcID: AudioDeviceIOProcID?
+    private var asbd = AudioStreamBasicDescription()
 
-    func start() async throws {
+    func start() throws {
         guard CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess() else {
             throw AudioTapError.capturePermission
         }
 
-        let content: SCShareableContent
-        do {
-            content = try await SCShareableContent.excludingDesktopWindows(
-                false,
-                onScreenWindowsOnly: false
-            )
-        } catch {
-            if !CGPreflightScreenCaptureAccess() {
-                throw AudioTapError.capturePermission
-            }
-            throw error
+        let uuid = UUID()
+        let description = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
+        description.uuid = uuid
+        description.isPrivate = true
+        description.muteBehavior = .unmuted
+
+        var tap = AudioObjectID(kAudioObjectUnknown)
+        let tapStatus = AudioHardwareCreateProcessTap(description, &tap)
+        guard tapStatus == noErr, tap != kAudioObjectUnknown else {
+            throw AudioTapError.tapCreate(tapStatus)
         }
+        tapID = tap
 
-        guard let display = content.displays.first else {
-            throw AudioTapError.noDisplay
-        }
-
-        let configuration = SCStreamConfiguration()
-        configuration.capturesAudio = true
-        configuration.excludesCurrentProcessAudio = true
-        configuration.sampleRate = 48_000
-        configuration.channelCount = 2
-        configuration.width = 2
-        configuration.height = 2
-        configuration.minimumFrameInterval = CMTime(value: 1, timescale: 1)
-        configuration.showsCursor = false
-
-        let stream = SCStream(
-            filter: SCContentFilter(display: display, excludingWindows: []),
-            configuration: configuration,
-            delegate: self
+        var formatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        var formatAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioTapPropertyFormat,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
         )
-        try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: audioQueue)
-        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: screenQueue)
-        self.stream = stream
+        let formatStatus = AudioObjectGetPropertyData(
+            tapID,
+            &formatAddress,
+            0,
+            nil,
+            &formatSize,
+            &asbd
+        )
+        guard formatStatus == noErr else {
+            throw AudioTapError.tapCreate(formatStatus)
+        }
 
+        let aggregateDescription: [String: Any] = [
+            kAudioAggregateDeviceNameKey: "QuestRock System Audio Tap",
+            kAudioAggregateDeviceUIDKey: UUID().uuidString,
+            kAudioAggregateDeviceIsPrivateKey: true,
+            kAudioAggregateDeviceTapAutoStartKey: true,
+            kAudioAggregateDeviceTapListKey: [
+                [
+                    kAudioSubTapUIDKey: uuid.uuidString,
+                    kAudioSubTapDriftCompensationKey: true,
+                ],
+            ],
+        ]
+        var aggregate = AudioObjectID(kAudioObjectUnknown)
+        let aggregateStatus = AudioHardwareCreateAggregateDevice(
+            aggregateDescription as CFDictionary,
+            &aggregate
+        )
+        guard aggregateStatus == noErr, aggregate != kAudioObjectUnknown else {
+            throw AudioTapError.aggregateCreate(aggregateStatus)
+        }
+        aggregateID = aggregate
+
+        let sampleRate = Int(asbd.mSampleRate.rounded())
         FileHandle.standardOutput.write(
-            Data("{\"sample_rate\":48000,\"channels\":2,\"format\":\"s16le\"}\n".utf8)
+            Data("{\"sample_rate\":\(sampleRate),\"channels\":2,\"format\":\"s16le\"}\n".utf8)
         )
-        try await stream.startCapture()
+
+        var ioProc: AudioDeviceIOProcID?
+        let ioStatus = AudioDeviceCreateIOProcIDWithBlock(&ioProc, aggregateID, queue) {
+            [self] _, inputData, _, _, _ in
+            self.writePCM(from: inputData)
+        }
+        guard ioStatus == noErr, let ioProc else {
+            throw AudioTapError.ioStart(ioStatus)
+        }
+        ioProcID = ioProc
+
+        let startStatus = AudioDeviceStart(aggregateID, ioProc)
+        guard startStatus == noErr else {
+            throw AudioTapError.ioStart(startStatus)
+        }
     }
 
-    func stream(
-        _ stream: SCStream,
-        didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
-        of outputType: SCStreamOutputType
-    ) {
-        guard outputType == .audio, sampleBuffer.isValid else {
+    private func writePCM(from inputData: UnsafePointer<AudioBufferList>) {
+        let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inputData))
+        let channels = max(1, Int(asbd.mChannelsPerFrame))
+        let bytesPerSample = max(1, Int(asbd.mBitsPerChannel / 8))
+        let isFloat = (asbd.mFormatFlags & kAudioFormatFlagIsFloat) != 0
+        let frameCount: Int
+        if buffers.count > 0 {
+            frameCount = Int(buffers[0].mDataByteSize) / max(1, bytesPerSample * (buffers.count == 1 ? channels : 1))
+        } else {
+            return
+        }
+        guard frameCount > 0 else {
             return
         }
 
-        do {
-            if let pcm = try convertToS16LE(sampleBuffer), !pcm.isEmpty {
-                FileHandle.standardOutput.write(pcm)
-            }
-        } catch {
-            writeError("audio_conversion: \(error)")
-            Darwin.exit(1)
-        }
-    }
-
-    func stream(_ stream: SCStream, didStopWithError error: Error) {
-        if !CGPreflightScreenCaptureAccess() {
-            writeError("capture_permission")
-        } else {
-            writeError("capture_stopped: \(error)")
-        }
-        Darwin.exit(1)
-    }
-
-    private func convertToS16LE(_ sampleBuffer: CMSampleBuffer) throws -> Data? {
-        guard
-            let formatDescription = sampleBuffer.formatDescription,
-            let description = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription)
-        else {
-            return nil
-        }
-
-        let format = description.pointee
-        guard format.mFormatID == kAudioFormatLinearPCM else {
-            throw AudioTapError.unsupportedAudioFormat
-        }
-
-        let channels = Int(format.mChannelsPerFrame)
-        let frameCount = sampleBuffer.numSamples
-        guard channels > 0, frameCount > 0 else {
-            return nil
-        }
-
-        let bufferListSize = MemoryLayout<AudioBufferList>.size
-            + (channels - 1) * MemoryLayout<AudioBuffer>.size
-        let storage = UnsafeMutableRawPointer.allocate(
-            byteCount: bufferListSize,
-            alignment: MemoryLayout<AudioBufferList>.alignment
-        )
-        defer { storage.deallocate() }
-
-        let bufferList = storage.bindMemory(to: AudioBufferList.self, capacity: 1)
-        bufferList.initialize(
-            to: AudioBufferList(
-                mNumberBuffers: 0,
-                mBuffers: AudioBuffer(mNumberChannels: 0, mDataByteSize: 0, mData: nil)
-            )
-        )
-        var retainedBlockBuffer: CMBlockBuffer?
-        let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
-            sampleBuffer,
-            bufferListSizeNeededOut: nil,
-            bufferListOut: bufferList,
-            bufferListSize: bufferListSize,
-            blockBufferAllocator: kCFAllocatorDefault,
-            blockBufferMemoryAllocator: kCFAllocatorDefault,
-            flags: 0,
-            blockBufferOut: &retainedBlockBuffer
-        )
-        guard status == noErr else {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
-        }
-
-        let buffers = UnsafeMutableAudioBufferListPointer(bufferList)
-        let flags = format.mFormatFlags
-        let nonInterleaved = flags & kAudioFormatFlagIsNonInterleaved != 0
-        let isFloat = flags & kAudioFormatFlagIsFloat != 0
-        let isSignedInteger = flags & kAudioFormatFlagIsSignedInteger != 0
-        let isBigEndian = flags & kAudioFormatFlagIsBigEndian != 0
-        let bytesPerSample = Int(format.mBitsPerChannel / 8)
-
-        guard
-            channels == 2,
-            bytesPerSample > 0,
-            (isFloat || isSignedInteger),
-            buffers.count >= (nonInterleaved ? channels : 1)
-        else {
-            throw AudioTapError.unsupportedAudioFormat
-        }
-
-        var output = Data(count: frameCount * channels * MemoryLayout<Int16>.size)
-        try output.withUnsafeMutableBytes { destination in
+        var output = Data(count: frameCount * 4)
+        output.withUnsafeMutableBytes { destination in
             let samples = destination.bindMemory(to: Int16.self)
             for frame in 0..<frameCount {
-                for channel in 0..<channels {
-                    let bufferIndex = nonInterleaved ? channel : 0
-                    let sampleIndex = nonInterleaved ? frame : frame * channels + channel
-                    guard let source = buffers[bufferIndex].mData else {
-                        throw AudioTapError.unsupportedAudioFormat
-                    }
-                    let pointer = source.advanced(by: sampleIndex * bytesPerSample)
-                    let value = try normalizedSample(
-                        at: pointer,
-                        bytesPerSample: bytesPerSample,
-                        isFloat: isFloat,
-                        isBigEndian: isBigEndian
-                    )
-                    let scaled = Int16((max(-1, min(1, value)) * 32_767).rounded())
-                    samples[frame * channels + channel] = scaled.littleEndian
-                }
+                let left = sample(buffers: buffers, frame: frame, channel: 0, channels: channels, bytesPerSample: bytesPerSample, isFloat: isFloat)
+                let right = channels > 1
+                    ? sample(buffers: buffers, frame: frame, channel: 1, channels: channels, bytesPerSample: bytesPerSample, isFloat: isFloat)
+                    : left
+                samples[frame * 2] = left
+                samples[frame * 2 + 1] = right
             }
         }
-        return output
+        FileHandle.standardOutput.write(output)
     }
 
-    private func normalizedSample(
-        at pointer: UnsafeMutableRawPointer,
+    private func sample(
+        buffers: UnsafeMutableAudioBufferListPointer,
+        frame: Int,
+        channel: Int,
+        channels: Int,
         bytesPerSample: Int,
-        isFloat: Bool,
-        isBigEndian: Bool
-    ) throws -> Double {
+        isFloat: Bool
+    ) -> Int16 {
+        let nonInterleaved = buffers.count > 1
+        let bufferIndex = nonInterleaved ? channel : 0
+        guard bufferIndex < buffers.count, let data = buffers[bufferIndex].mData else {
+            return 0
+        }
+        let index = nonInterleaved ? frame : frame * channels + channel
+        let pointer = data.advanced(by: index * bytesPerSample)
         if isFloat, bytesPerSample == 4 {
             let bits = pointer.loadUnaligned(as: UInt32.self)
-            return Double(Float(bitPattern: isBigEndian ? bits.byteSwapped : bits))
-        }
-        if isFloat, bytesPerSample == 8 {
-            let bits = pointer.loadUnaligned(as: UInt64.self)
-            return Double(bitPattern: isBigEndian ? bits.byteSwapped : bits)
+            return floatToS16(Float(bitPattern: bits))
         }
         if !isFloat, bytesPerSample == 2 {
-            let bits = pointer.loadUnaligned(as: UInt16.self)
-            let value = Int16(bitPattern: isBigEndian ? bits.byteSwapped : bits)
-            return Double(value) / 32_768
+            return Int16(bitPattern: pointer.loadUnaligned(as: UInt16.self))
         }
-        if !isFloat, bytesPerSample == 4 {
-            let bits = pointer.loadUnaligned(as: UInt32.self)
-            let value = Int32(bitPattern: isBigEndian ? bits.byteSwapped : bits)
-            return Double(value) / 2_147_483_648
-        }
-        throw AudioTapError.unsupportedAudioFormat
+        return 0
+    }
+
+    private func floatToS16(_ value: Float) -> Int16 {
+        Int16((max(-1, min(1, value)) * 32_767).rounded())
     }
 }
 
@@ -213,14 +162,24 @@ private func writeError(_ message: String) {
     FileHandle.standardError.write(Data("\(message)\n".utf8))
 }
 
+private var retainedTap: SystemTap?
+
 @main
 private struct Main {
-    static func main() async {
-        let tap = AudioTap()
+    static func main() {
+        guard #available(macOS 14.2, *) else {
+            writeError("capture_error: macOS 14.2 or later is required")
+            Darwin.exit(1)
+        }
         do {
-            try await tap.start()
+            let tap = SystemTap()
+            retainedTap = tap
+            try tap.start()
             dispatchMain()
         } catch AudioTapError.capturePermission {
+            writeError("capture_permission")
+            Darwin.exit(1)
+        } catch AudioTapError.tapCreate {
             writeError("capture_permission")
             Darwin.exit(1)
         } catch {

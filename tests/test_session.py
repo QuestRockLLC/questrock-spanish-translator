@@ -3,7 +3,7 @@ import pytest
 from audio.types import AudioFrame, LoopbackDevice
 from backend.sessions.call_session import CallSession
 from backend.sessions.manager import SessionManager, production_dependencies
-from backend.websocket.protocol import ServerMessage, Status, Transcript
+from backend.websocket.protocol import ErrorMessage, ServerMessage, Status, Transcript
 from tests.fakes import FakeCapture, FakeTranslator, FakeVad, FakeWhisper
 
 
@@ -37,6 +37,7 @@ async def test_session_emits_final_transcript_and_stops_capture() -> None:
 
     assert [event.state for event in events if isinstance(event, Status)] == [
         "loading_model",
+        "listening",
         "listening",
         "transcribing",
         "translating",
@@ -98,6 +99,33 @@ async def test_blank_transcription_is_skipped() -> None:
 
     assert not any(isinstance(event, Transcript) for event in events)
     assert capture.stopped is True
+
+
+@pytest.mark.asyncio
+async def test_capture_start_failure_emits_error() -> None:
+    class BrokenCapture(FakeCapture):
+        def start(self, device_id: str) -> None:
+            raise RuntimeError("AudioTap exited before sending its format header")
+
+    events: list[ServerMessage] = []
+    session = CallSession(
+        call_session_id="abc",
+        device_id="d1",
+        capture=BrokenCapture(
+            devices=[LoopbackDevice("d1", "Speakers", "loopback")],
+            frames=[],
+        ),
+        vad=FakeVad(emit_on_nth=1, pcm=b""),
+        whisper=FakeWhisper(text=None),
+        translator=FakeTranslator(text=None),
+        emit=events.append,
+    )
+
+    await session.run()
+
+    errors = [event for event in events if isinstance(event, ErrorMessage)]
+    assert len(errors) == 1
+    assert "AudioTap" in errors[0].message
 
 
 def test_stop_is_idempotent_and_stops_capture() -> None:

@@ -107,19 +107,31 @@ def create_calls_router(
                         )
                         continue
                     call_session_id = str(uuid4())
-                    active_session = session_factory(
-                        call_session_id=call_session_id,
-                        device_id=message.device_id,
-                        capture=capture_provider(),
-                        emit=events.put_nowait,
-                    )
                     events.put_nowait(
                         SessionStarted(
                             call_session_id=call_session_id,
                             device_id=message.device_id,
                         )
                     )
-                    active_task = asyncio.create_task(active_session.run())
+
+                    def build_session() -> Session:
+                        return session_factory(
+                            call_session_id=call_session_id,
+                            device_id=message.device_id,
+                            capture=capture_provider(),
+                            emit=events.put_nowait,
+                        )
+
+                    try:
+                        active_session = await asyncio.to_thread(build_session)
+                    except Exception as exc:
+                        events.put_nowait(
+                            ErrorMessage(code="session", message=str(exc))
+                        )
+                        continue
+                    active_task = asyncio.create_task(
+                        _run_session(active_session, events)
+                    )
         except WebSocketDisconnect:
             pass
         finally:
@@ -129,6 +141,16 @@ def create_calls_router(
                 await sender
 
     return router
+
+
+async def _run_session(
+    session: Session,
+    events: asyncio.Queue[ServerMessage],
+) -> None:
+    try:
+        await session.run()
+    except Exception as exc:
+        events.put_nowait(ErrorMessage(code="session", message=str(exc)))
 
 
 async def _send_events(

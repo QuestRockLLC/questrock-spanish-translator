@@ -1,6 +1,5 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
 from ai.translation.glossary import load_glossary
 from ai.translation.prompt import build_system_prompt
@@ -8,8 +7,9 @@ from ai.translation.translator import MortgageTranslator
 from ai.vad.segmenter import VadSegmenter
 from ai.whisper.transcriber import WhisperTranscriber
 from audio.factory import AudioCapture
-from backend.settings import Settings
+from backend.paths import glossary_path
 from backend.sessions.call_session import CallSession
+from backend.settings import Settings
 from backend.websocket.protocol import ServerMessage
 
 
@@ -36,7 +36,7 @@ def production_dependencies(
     def load_translator() -> MortgageTranslator:
         from openai import AsyncOpenAI
 
-        glossary = load_glossary(Path("config/mortgage_glossary.json"))
+        glossary = load_glossary(glossary_path())
         client = (
             AsyncOpenAI(api_key=settings.openai_api_key)
             if settings.openai_api_key

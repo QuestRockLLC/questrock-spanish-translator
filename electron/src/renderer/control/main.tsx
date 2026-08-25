@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import type { ServerMessage } from '../../shared/protocol'
 import { parseServerMessage } from '../../shared/protocol'
 import type { OverlayPreset } from '../../main/overlayBounds'
+import type { UpdateUiState } from '../../main/updater'
+import { UpdateBanner } from './UpdateBanner'
 
 type Row = { original: string; translated: string; confidence: number }
 
@@ -12,23 +14,36 @@ function App() {
   const [status, setStatus] = useState('Idle')
   const [history, setHistory] = useState<Row[]>([])
   const [preset, setPreset] = useState<OverlayPreset>('bottom-right')
+  const [update, setUpdate] = useState<UpdateUiState>({ status: 'idle' })
 
   useEffect(() => {
-    void window.questrock.listDevices().then((payload) => {
+    const api = window.questrock
+    if (!api) {
+      setStatus('preload missing')
+      return
+    }
+    api.onUpdate((state) => setUpdate(state))
+    void api.listDevices().then((payload) => {
       setDevices(payload.devices)
       if (payload.devices[0]) {
         setDeviceId(payload.devices[0].id)
       }
     })
-    window.questrock.onEvent((raw) => {
+    api.onEvent((raw) => {
       let msg: ServerMessage
       try {
         msg = parseServerMessage(raw)
       } catch {
         return
       }
+      if (msg.type === 'session_started') {
+        setStatus('Starting session')
+      }
       if (msg.type === 'status') {
-        setStatus(msg.state)
+        setStatus(msg.detail ? `${msg.state} (${msg.detail})` : msg.state)
+      }
+      if (msg.type === 'error') {
+        setStatus(msg.message)
       }
       if (msg.type === 'transcript') {
         setHistory((h) => [
@@ -46,6 +61,7 @@ function App() {
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 20, color: '#1d1d1f' }}>
       <h1 style={{ fontSize: 20 }}>QuestRock AI Assistant</h1>
+      <UpdateBanner state={update} onInstall={() => void window.questrock?.installUpdate()} />
       <p>Status: {status}</p>
       <label>
         Loopback device
@@ -58,10 +74,18 @@ function App() {
         </select>
       </label>
       <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-        <button type="button" onClick={() => void window.questrock.startCall(deviceId)}>
+        <button
+          type="button"
+          onClick={() => {
+            setStatus('Starting session')
+            void window.questrock?.startCall(deviceId).catch((err: unknown) => {
+              setStatus(err instanceof Error ? err.message : 'Start failed')
+            })
+          }}
+        >
           Start Spanish mode
         </button>
-        <button type="button" onClick={() => void window.questrock.stopCall()}>
+        <button type="button" onClick={() => void window.questrock?.stopCall()}>
           Stop
         </button>
       </div>
@@ -75,7 +99,7 @@ function App() {
               checked={preset === p}
               onChange={() => {
                 setPreset(p)
-                void window.questrock.setOverlayPosition(p)
+                void window.questrock?.setOverlayPosition(p)
               }}
             />
             {p}

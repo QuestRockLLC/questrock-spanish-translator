@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { app } from 'electron'
 import { createServer } from 'node:net'
 import path from 'node:path'
+import { loadEnvFiles, resolveSidecarLaunch } from './sidecarLaunch'
 
 export async function pickPort(): Promise<number> {
   return await new Promise((resolve, reject) => {
@@ -17,15 +19,34 @@ export async function pickPort(): Promise<number> {
   })
 }
 
-export function spawnSidecar(repoRoot: string, port: number): ChildProcess {
-  return spawn('uv', ['run', 'questrock-sidecar', '--port', String(port)], {
-    cwd: repoRoot,
-    env: { ...process.env },
+export function spawnSidecar(port: number): ChildProcess {
+  const repoRoot = path.resolve(app.getAppPath(), '..')
+  const userData = app.getPath('userData')
+  const launch = resolveSidecarLaunch({
+    packaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    repoRoot,
+    platform: process.platform,
+    port,
+  })
+  const fileEnv = loadEnvFiles([
+    path.join(repoRoot, '.env'),
+    path.join(launch.cwd, '.env'),
+    path.join(userData, '.env'),
+  ])
+  return spawn(launch.command, launch.args, {
+    cwd: launch.cwd,
+    env: {
+      ...process.env,
+      ...fileEnv,
+      HF_HOME: path.join(userData, 'hf'),
+      QUESTROCK_HOME: launch.cwd,
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
-export async function waitForHealth(port: number, timeoutMs = 30_000): Promise<void> {
+export async function waitForHealth(port: number, timeoutMs = 180_000): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     try {
@@ -38,8 +59,4 @@ export async function waitForHealth(port: number, timeoutMs = 30_000): Promise<v
     }
   }
   throw new Error('sidecar health timeout')
-}
-
-export function repoRootFromElectron(): string {
-  return path.resolve(__dirname, '../../../../')
 }

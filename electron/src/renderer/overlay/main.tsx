@@ -10,12 +10,19 @@ function OverlayApp() {
   const [translatedText, setTranslatedText] = useState<string | null>(null)
 
   useEffect(() => {
-    window.questrock.onEvent((raw) => {
+    const api = window.questrock
+    if (!api) {
+      return
+    }
+    api.onEvent((raw) => {
       let msg: ServerMessage
       try {
         msg = parseServerMessage(raw)
       } catch {
         return
+      }
+      if (msg.type === 'session_started') {
+        setStatus('Starting')
       }
       if (msg.type === 'status') {
         const map: Record<string, string> = {
@@ -26,10 +33,11 @@ function OverlayApp() {
           error: 'Error',
           idle: 'Idle',
         }
-        setStatus(map[msg.state] ?? msg.state)
+        const label = map[msg.state] ?? msg.state
+        setStatus(msg.detail ? `${label} (${msg.detail})` : label)
       }
       if (msg.type === 'error') {
-        setStatus('Error')
+        setStatus(msg.message)
       }
       if (msg.type === 'transcript') {
         setOriginalText(msg.original_text)
