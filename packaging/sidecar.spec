@@ -19,18 +19,21 @@ hiddenimports: list = [
     "audio.macos",
     "audio.windows",
     "silero_vad",
+    "silero_vad.data",
+    "silero_vad.model",
+    "silero_vad.utils_vad",
     "ctranslate2",
     "faster_whisper",
 ]
 
 for pkg in (
+    "silero_vad",
     "faster_whisper",
     "ctranslate2",
     "onnxruntime",
     "av",
     "tokenizers",
     "huggingface_hub",
-    "faster_whisper",
 ):
     collected_datas, collected_binaries, collected_hidden = collect_all(pkg)
     datas += collected_datas

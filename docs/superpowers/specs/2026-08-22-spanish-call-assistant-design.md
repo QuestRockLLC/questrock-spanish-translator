@@ -3,8 +3,9 @@
 Date: 2026-08-22
 Status: Phase 1 Mac live loop works (capture, Whisper, glossary translation).
 Local unsigned Mac DMG packaging works.
-App version `0.1.1` (tags `v0.1.0`, `v0.1.1`).
+App version `0.1.3` (tags through `v0.1.3`).
 Release CI builds both OS artifacts then creates a single GitHub Release per tag.
+`v0.1.3` packs `silero_vad.data` into the Windows sidecar.
 Windows live loop is not proven on this machine.
 Signing is not done.
 Product: QuestRock AI Assistant (QuestRock LLC)
@@ -506,14 +507,14 @@ Done on this Mac:
 - Listening status reports capture signal level.
 - Local unsigned `npm run dist:mac` DMG (sidecar is PyInstaller onedir + AudioTap).
 - GitHub Release auto-update (tag workflow, Pages download page, in-app Update now). Unsigned.
-- Tags `v0.1.0` and `v0.1.1`.
+- Tags through `v0.1.3`.
 - CI: Mac/Windows package with `--publish never`, then one `gh release create` job so installer URLs stay stable.
+- PyInstaller collects `silero_vad` (including `silero_vad.data` ONNX models) for packaged Start.
 
 Still open for Phase 1:
 
-- Windows live-loop proof (run `npm run dist:win` on a Windows PC and play Spanish through speakers).
+- Windows live-loop proof after installing `v0.1.3`.
 - `tests/test_logging.py` (Task 19 logging guard).
-- Confirm the `v0.1.1` Actions run attached both OS installers to one Release.
 - Code signing / notarization (`docs/CODE_SIGNING.md`).
 
 Later phases (not started): Zoom process tap (2), Modal GPU (3), login if needed (4), mortgage intent (5).

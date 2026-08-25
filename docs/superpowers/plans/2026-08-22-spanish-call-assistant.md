@@ -18,8 +18,9 @@ PCM never enters Electron.
 Phase 1 tasks **1-18 are implemented** (sidecar, dual-OS capture backends, VAD, Whisper, translator, Electron control + overlay).
 The Mac live loop has run: Whisper processed speech and OpenAI returned translations.
 Local unsigned Mac DMG packaging has been built.
-Shipped tags: `v0.1.0`, `v0.1.1` (app version 0.1.1).
+Shipped tags through `v0.1.3` (app version 0.1.3).
 Release workflow builds both OS installers, then one job publishes a single GitHub Release.
+`v0.1.3` fixes Windows Start failing with missing `silero_vad.data`.
 
 | Item | State |
 | --- | --- |
@@ -28,11 +29,11 @@ Release workflow builds both OS installers, then one job publishes a single GitH
 | Task 20 Mac smoke | Done (transcription + translation). Not a signed installer |
 | Task 20 Windows smoke | Not done |
 | Packaged sidecar + electron-builder | Mac DMG built locally. Windows installer is built in CI on `windows-latest` |
-| In-app Update now + tag CI + Pages | In tree. Tags `v0.1.0` / `v0.1.1`. One Release per tag (`publish` job) |
+| In-app Update now + tag CI + Pages | In tree. Tags through `v0.1.3`. One Release per tag (`publish` job) |
 | Code signing | Documented in `docs/CODE_SIGNING.md`. `identity: null` and `CSC_IDENTITY_AUTO_DISCOVERY=false` until certs exist |
 | Phases 2-5 | Not started. Phase 4 is login only. No transcript DB in any phase (Zoom Phone stores the call) |
 
-Left: Windows proof on hardware, logging-guard test, confirm v0.1.1 Release assets, Apple/Windows signing, then Phase 2 Zoom tap.
+Left: Windows proof on hardware with `v0.1.3`, logging-guard test, Apple/Windows signing, then Phase 2 Zoom tap.
 
 Historical TDD checkboxes below are the original recipe.
 They are not a live tracker.

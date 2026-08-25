@@ -72,7 +72,7 @@ npm install
 npm run dist:mac
 ```
 
-Installer: `electron/release/QuestRock AI Assistant-0.1.1-arm64.dmg`
+Installer: `electron/release/QuestRock AI Assistant-0.1.3-arm64.dmg`
 
 The local Mac DMG is unsigned.
 First launch: right-click Open.
@@ -89,7 +89,7 @@ npm install
 npm run dist:win
 ```
 
-Installer: `electron/release/QuestRock-AI-Assistant-Setup-0.1.1.exe`
+Installer: `electron/release/QuestRock-AI-Assistant-Setup-0.1.3.exe`
 
 ## Public downloads and updates
 
@@ -99,7 +99,7 @@ Installers go to GitHub Releases.
 GitHub Pages (`docs/`) at https://abbassaeedza.github.io/questrock-spanish-whispy/ links the latest `.dmg` / `.exe`.
 The picker ignores `.blockmap` files so the Download button is a real installer.
 
-Current app version is `0.1.1` (`electron/package.json`, tag `v0.1.1`).
+Current app version is `0.1.3` (`electron/package.json`, tag `v0.1.3`).
 
 Installed copies check Releases on launch and show **Update now** in the control window.
 
@@ -107,8 +107,8 @@ Installed copies check Releases on launch and show **Update now** in the control
 
 1. Set `version` in `electron/package.json` (must match the tag you will push).
 2. Commit.
-3. `git tag v0.1.2` (example).
-4. `git push origin main v0.1.2`
+3. `git tag v0.1.4` (example).
+4. `git push origin main v0.1.4`
 
 GitHub Actions builds Mac and Windows with `--publish never`, uploads artifacts, then a **publish** job creates **one** GitHub Release for that tag.
 Do not let each OS job call `electron-builder --publish always`.
