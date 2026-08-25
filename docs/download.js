@@ -33,11 +33,15 @@ export function githubRepoFromPagesLocation(hostname, pathname) {
  * @returns {{ name: string, browser_download_url: string } | null}
  */
 export function pickInstaller(assets, os) {
-  if (os === 'mac') {
-    return assets.find((asset) => asset.name.toLowerCase().endsWith('.dmg')) ?? null
+  const wanted =
+    os === 'mac' ? '.dmg' : os === 'windows' ? '.exe' : null
+  if (!wanted) {
+    return null
   }
-  if (os === 'windows') {
-    return assets.find((asset) => asset.name.toLowerCase().endsWith('.exe')) ?? null
-  }
-  return null
+  return (
+    assets.find((asset) => {
+      const name = asset.name.toLowerCase()
+      return name.endsWith(wanted) && !name.includes('.blockmap')
+    }) ?? null
+  )
 }

@@ -1,48 +1,66 @@
 # QuestRock AI Assistant
 
-Phase 1 local live interpreter for Spanish mortgage calls.
+Local live captions for Spanish mortgage calls.
 
-Electron starts a Python sidecar on 127.0.0.1.
-The sidecar captures system-audio loopback, transcribes Spanish with faster-whisper, and translates with GPT-4.1-mini using `config/mortgage_glossary.json`.
-A click-through overlay shows English as the primary line and Spanish as a verifier.
+The loan officer hears Spanish.
+The overlay shows English (primary) and Spanish (verifier) a couple of seconds after the borrower stops talking.
 
-## Setup (development)
+There is no TTS, login, cloud capture, or Zoom-process tap in this phase.
 
-1. Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
+## What is implemented
+
+- Electron control window plus a click-through overlay (hotkeys `Cmd/Ctrl+Shift+T` and `Cmd/Ctrl+Shift+L`).
+- Python FastAPI sidecar on `127.0.0.1` only.
+- JSON WebSocket `ws://127.0.0.1:<port>/v1/calls`.
+- Electron never handles PCM.
+- macOS loopback: Core Audio system tap (`native/macos/AudioTap`, macOS 14.2+). Screen Recording permission is still required.
+- Windows loopback: WASAPI via `pyaudiowpatch` (code is in-tree; live proof is still on you).
+- Silero VAD, utterance-final faster-whisper `small` (`avg_logprob` confidence), glossary translation with `gpt-4.1-mini`.
+- Listening status includes a **signal** percent so you can see capture is not silent.
+- Packaged Mac `.dmg` / Windows `.exe` that embed a PyInstaller sidecar.
+- Packaged apps check GitHub Releases and show **Update now** (`electron-updater`).
+- GitHub Actions on `v*` tags (`.github/workflows/release.yml`).
+- Download page under `docs/` for GitHub Pages.
+
+Phase 1 live loop has been run on this Mac (system audio, Spanish video, captions, OpenAI translation).
+Windows live loop and a Windows-built installer are not proven here.
+
+Out of Phase 1: Zoom Phone process tap, Modal GPU, Supabase/auth, mortgage intent.
+
+## Development
+
+1. Copy `.env.example` to `.env` at the repo root and set `OPENAI_API_KEY`.
 2. `uv sync --extra dev`
-3. On macOS: `bash native/macos/build.sh` then enable Screen Recording when prompted.
+3. On macOS: `bash native/macos/build.sh`, then enable Screen Recording when prompted (Electron and AudioTap if listed).
 4. `cd electron && npm install`
+5. From `electron/`: `npm run dev`
 
-## Run (development)
+Select **System Audio** (Mac) or the WASAPI loopback that matches the speakers/headset.
+Press **Start Spanish mode**.
+Play Spanish through that output.
+Captions appear after a pause (~800 ms silence) or at the 8 s utterance cap, not while someone is still talking.
 
-From `electron/`: `npm run dev`
-
-Select the loopback device Zoom Phone (or your speakers) uses.
-Press Start Spanish mode.
-Play Spanish audio through that output.
-
-Hotkeys: `Cmd/Ctrl+Shift+T` toggles overlay. `Cmd/Ctrl+Shift+L` makes it draggable for 3 seconds.
+First Start downloads Whisper `small` from Hugging Face into the Hugging Face cache (dev) or the app-support `hf/` folder (packaged).
 
 ## Packaged installers
 
-The `.dmg` / `.exe` is a full app, not a thin downloader.
-
-It already contains Electron, the UI, and a PyInstaller sidecar (Python runtime, FastAPI, faster-whisper engine, Silero VAD, glossary, and on Mac the AudioTap helper).
+The `.dmg` / `.exe` already contains Electron, the UI, and a PyInstaller sidecar (Python, FastAPI, faster-whisper engine, Silero, glossary, and on Mac the AudioTap binary).
 The loan officer does not install Python, Node, or pip.
 
-It does **not** ship the Whisper weight files.
-The first **Start Spanish mode** downloads faster-whisper `small` from Hugging Face into the app-support folder (`hf/` under user data) and reuses it after that.
-Translation calls OpenAI over the network using `OPENAI_API_KEY`.
-That is an API call, not an installer step.
+It does not ship Whisper weight files.
+The first Start downloads them.
 
-Put the OpenAI key in an `.env` file (same keys as `.env.example`) at:
-
-- macOS: `~/Library/Application Support/QuestRock AI Assistant/.env`
-- Windows: `%APPDATA%\\QuestRock AI Assistant\\.env`
+Dev still uses `uv run questrock-sidecar`.
+Packaged Electron spawns `Contents/Resources/sidecar/questrock-sidecar` (or `.exe` on Windows).
 
 Build the Mac installer on a Mac.
 Build the Windows installer on a Windows PC.
 Do not copy a Mac sidecar into a Windows installer.
+
+OpenAI key for packaged apps (same keys as `.env.example`):
+
+- macOS: `~/Library/Application Support/QuestRock AI Assistant/.env`
+- Windows: `%APPDATA%\QuestRock AI Assistant\.env`
 
 ### macOS
 
@@ -53,9 +71,11 @@ npm install
 npm run dist:mac
 ```
 
-Installer: `electron/release/QuestRock AI Assistant-0.1.0-arm64.dmg`
+Installer: `electron/release/QuestRock AI Assistant-0.1.1-arm64.dmg`
 
-Enable Screen Recording for QuestRock AI Assistant after first launch.
+The local Mac DMG is unsigned.
+First launch: right-click Open.
+Enable Screen Recording for QuestRock AI Assistant.
 
 ### Windows
 
@@ -68,34 +88,38 @@ npm install
 npm run dist:win
 ```
 
-Installer: `electron/release/QuestRock-AI-Assistant-Setup-0.1.0.exe`
+Installer: `electron/release/QuestRock-AI-Assistant-Setup-0.1.1.exe`
 
 ## Public downloads and updates
 
-This is a desktop app. It is not hosted on Vercel.
+This is a desktop app, not a Vercel site.
 
-GitHub stores the Mac `.dmg` and Windows `.exe`.
-A GitHub Pages page at https://abbassaeedza.github.io/questrock-spanish-whispy/ detects the OS and links the right installer.
-Installed copies check GitHub Releases on launch and show **Update now** in the control window.
+Installers go to GitHub Releases.
+GitHub Pages (`docs/`) at https://abbassaeedza.github.io/questrock-spanish-whispy/ links the latest `.dmg` / `.exe`.
+
+Installed copies check Releases on launch and show **Update now** in the control window.
 
 ### Ship a new version
 
-1. Set `version` in `electron/package.json` (example `0.2.0`).
+1. Set `version` in `electron/package.json`.
 2. Commit.
 3. `git tag v0.2.0`
 4. `git push origin main v0.2.0`
 
-GitHub Actions builds both OS installers and attaches them to that tag's Release.
-Local `npm run dist:mac` / `dist:win` stay unpublished (`--publish never`).
+GitHub Actions builds both OS installers and attaches them to that tag.
+Local `npm run dist:mac` / `dist:win` use `--publish never`.
 
-Code signing is optional for now. See [docs/CODE_SIGNING.md](docs/CODE_SIGNING.md).
-
-## License
-
-MIT. Copyright (c) 2026 Abbas Saeed Zaidi. See [LICENSE](LICENSE).
+Code signing is optional until you are ready to sell.
+See [docs/CODE_SIGNING.md](docs/CODE_SIGNING.md).
 
 ## Tests
 
 `uv run pytest -v`
 
 `cd electron && npm test`
+
+## License
+
+MIT.
+Copyright (c) 2026 Abbas Saeed Zaidi.
+See [LICENSE](LICENSE).

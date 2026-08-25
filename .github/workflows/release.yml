@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   macos:
     runs-on: macos-latest
@@ -23,7 +27,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: electron/package-lock.json
-      - name: Build ScreenCaptureKit helper
+      - name: Build AudioTap helper
         run: bash native/macos/build.sh
       - name: Install Python sidecar
         run: uv sync --extra packaging --extra dev
@@ -33,15 +37,23 @@ jobs:
       - name: Bundle sidecar
         working-directory: electron
         run: npm run sidecar
-      - name: Package and publish Mac installer
+      - name: Package Mac installer
         working-directory: electron
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
           node ../packaging/check-sidecar.cjs darwin
           npm run build
-          npx electron-builder --mac --config electron-builder.yml --publish always
+          npx electron-builder --mac --config electron-builder.yml --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-installer
+          if-no-files-found: error
+          path: |
+            electron/release/*.dmg
+            electron/release/*.zip
+            electron/release/*.blockmap
+            electron/release/latest-mac.yml
 
   windows:
     runs-on: windows-latest
@@ -65,12 +77,37 @@ jobs:
       - name: Bundle sidecar
         working-directory: electron
         run: npm run sidecar
-      - name: Package and publish Windows installer
+      - name: Package Windows installer
         working-directory: electron
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
           node ../packaging/check-sidecar.cjs win32
           npm run build
-          npx electron-builder --win --config electron-builder.yml --publish always
+          npx electron-builder --win --config electron-builder.yml --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win-installer
+          if-no-files-found: error
+          path: |
+            electron/release/*.exe
+            electron/release/*.blockmap
+            electron/release/latest.yml
+
+  publish:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create one GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find artifacts -type f | sort)
+          gh release create "${GITHUB_REF_NAME}" "${files[@]}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes "QuestRock AI Assistant ${GITHUB_REF_NAME}"

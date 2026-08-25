@@ -17,6 +17,14 @@ it('picks the dmg on Mac, not the zip', () => {
   expect(pickInstaller(assets, 'mac')?.browser_download_url).toBe('https://example/mac.dmg')
 })
 
+it('ignores blockmap files', () => {
+  const assets = [
+    { name: 'QuestRock-AI-Assistant-0.2.0-arm64.dmg.blockmap', browser_download_url: 'https://example/blockmap' },
+    { name: 'QuestRock-AI-Assistant-0.2.0-arm64.dmg', browser_download_url: 'https://example/mac.dmg' },
+  ]
+  expect(pickInstaller(assets, 'mac')?.browser_download_url).toBe('https://example/mac.dmg')
+})
+
 it('picks the NSIS exe on Windows', () => {
   const assets = [
     { name: 'QuestRock AI Assistant-0.2.0-arm64.dmg', browser_download_url: 'https://example/mac.dmg' },
