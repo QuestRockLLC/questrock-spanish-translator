@@ -8,7 +8,9 @@ def test_health_ok() -> None:
     client = TestClient(create_app())
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"ok": True}
+    body = response.json()
+    assert body["ok"] is True
+    assert body["inference"] in {"modal", "local"}
 
 
 def test_run_preserves_json_logging(monkeypatch: pytest.MonkeyPatch) -> None:

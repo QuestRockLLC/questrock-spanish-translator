@@ -5,8 +5,8 @@ export type DisplayRect = { x: number; y: number; width: number; height: number 
 export type Bounds = { x: number; y: number; width: number; height: number }
 
 export function overlayBounds(display: DisplayRect, preset: OverlayPreset): Bounds {
-  const width = 400
-  const height = 140
+  const width = 460
+  const height = 340
   const margin = 16
   if (preset === 'bottom-center') {
     return {

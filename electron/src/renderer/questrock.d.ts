@@ -4,8 +4,8 @@ export type OverlayPreset = 'bottom-right' | 'bottom-center' | 'top-right'
 export type { UpdateUiState }
 
 export type QuestrockApi = {
-  onEvent: (fn: (msg: unknown) => void) => void
-  onUpdate: (fn: (state: UpdateUiState) => void) => void
+  onEvent: (fn: (msg: unknown) => void) => () => void
+  onUpdate: (fn: (state: UpdateUiState) => void) => () => void
   startCall: (deviceId: string) => Promise<void>
   stopCall: () => Promise<void>
   listDevices: () => Promise<{ devices: Array<{ id: string; name: string; kind: string }> }>

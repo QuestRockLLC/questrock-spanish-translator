@@ -14,7 +14,7 @@ export type ServerMessage =
       type: 'transcript'
       call_session_id: string
       id: string
-      is_final: true
+      is_final: boolean
       original_language: string
       original_text: string
       translated_text: string | null

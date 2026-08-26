@@ -1,13 +1,33 @@
-import { app, ipcMain, type BrowserWindow } from 'electron'
+import { app, dialog, ipcMain, type BrowserWindow } from 'electron'
 import path from 'node:path'
 import { GatewayClient } from './gateway'
 import { registerHotkeys } from './hotkeys'
 import { pickPort, spawnSidecar, waitForHealth } from './sidecar'
+import { attachHideOnClose, markQuitting, setupTray } from './tray'
 import { attachUpdater, shouldCheckForUpdates } from './updater'
 import { loadAutoUpdater } from './updaterLoad'
-import { createWindows, setOverlayPreset } from './windows'
+import { createWindows, getControl, setOverlayPreset } from './windows'
 import type { OverlayPreset } from './overlayBounds'
 import type { ServerMessage } from '../shared/protocol'
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const control = getControl()
+    if (!control) {
+      return
+    }
+    if (control.isMinimized()) {
+      control.restore()
+    }
+    control.show()
+    control.focus()
+  })
+
+  void boot()
+}
 
 function rendererEntry(page: 'control' | 'overlay'): { kind: 'url' | 'file'; value: string } {
   const devBase = process.env.ELECTRON_RENDERER_URL
@@ -34,13 +54,31 @@ async function loadWindow(win: BrowserWindow, page: 'control' | 'overlay'): Prom
 
 async function boot(): Promise<void> {
   await app.whenReady()
-  const port = await pickPort()
-  const child = spawnSidecar(port)
-  child.stderr?.on('data', (chunk: Buffer) => {
-    process.stderr.write(chunk)
+  setupTray(getControl)
+  app.on('window-all-closed', () => {
+    // Keep running in the tray after the control window is hidden.
   })
-  await waitForHealth(port)
+  app.on('before-quit', () => {
+    markQuitting()
+  })
+
+  let port: number
+  try {
+    port = await pickPort()
+    const child = await spawnSidecar(port)
+    child.stderr?.on('data', (chunk: Buffer) => {
+      process.stderr.write(chunk)
+    })
+    await waitForHealth(port)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    dialog.showErrorBox('QuestRock AI Assistant', message)
+    app.quit()
+    return
+  }
+
   const { control, overlay } = createWindows()
+  attachHideOnClose(control)
   const gateway = new GatewayClient(`ws://127.0.0.1:${port}/v1/calls`)
   await gateway.connect()
   gateway.onMessage((msg: ServerMessage) => {
@@ -74,5 +112,3 @@ async function boot(): Promise<void> {
   control.show()
   overlay.showInactive()
 }
-
-void boot()

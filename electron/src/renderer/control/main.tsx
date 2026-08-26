@@ -6,7 +6,11 @@ import type { OverlayPreset } from '../../main/overlayBounds'
 import type { UpdateUiState } from '../../main/updater'
 import { UpdateBanner } from './UpdateBanner'
 
-type Row = { original: string; translated: string; confidence: number }
+type Row = { id: string; original: string; translated: string; confidence: number }
+
+function displayTranslation(original: string, translated: string | null): string {
+  return translated ?? original
+}
 
 function App() {
   const [devices, setDevices] = useState<Array<{ id: string; name: string }>>([])
@@ -22,14 +26,14 @@ function App() {
       setStatus('preload missing')
       return
     }
-    api.onUpdate((state) => setUpdate(state))
+    const offUpdate = api.onUpdate((state) => setUpdate(state))
     void api.listDevices().then((payload) => {
       setDevices(payload.devices)
       if (payload.devices[0]) {
         setDeviceId(payload.devices[0].id)
       }
     })
-    api.onEvent((raw) => {
+    const offEvent = api.onEvent((raw) => {
       let msg: ServerMessage
       try {
         msg = parseServerMessage(raw)
@@ -38,6 +42,7 @@ function App() {
       }
       if (msg.type === 'session_started') {
         setStatus('Starting session')
+        setHistory([])
       }
       if (msg.type === 'status') {
         if (msg.state === 'idle') {
@@ -50,16 +55,21 @@ function App() {
         setStatus(msg.message)
       }
       if (msg.type === 'transcript') {
-        setHistory((h) => [
-          {
-            original: msg.original_text,
-            translated: msg.translated_text ?? 'Translation unavailable',
-            confidence: msg.confidence,
-          },
-          ...h,
-        ].slice(0, 50))
+        const row: Row = {
+          id: msg.id,
+          original: msg.original_text,
+          translated: displayTranslation(msg.original_text, msg.translated_text),
+          confidence: msg.confidence,
+        }
+        if (msg.is_final) {
+          setHistory((h) => [...h.filter((entry) => entry.id !== msg.id), row].slice(-50))
+        }
       }
     })
+    return () => {
+      offEvent()
+      offUpdate()
+    }
   }, [])
 
   return (
@@ -120,10 +130,10 @@ function App() {
       </fieldset>
       <h2 style={{ fontSize: 16, marginTop: 20 }}>Transcripts</h2>
       <ul>
-        {history.map((row, i) => (
-          <li key={i}>
-            <div>{row.original}</div>
-            <div>
+        {history.map((row) => (
+          <li key={row.id} style={{ marginBottom: 14 }}>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{row.original}</div>
+            <div style={{ whiteSpace: 'pre-wrap' }}>
               <strong>{row.translated}</strong> ({Math.round(row.confidence * 100)}%)
             </div>
           </li>

@@ -3,7 +3,9 @@
 Local live captions for Spanish mortgage calls.
 
 The loan officer hears Spanish.
-The overlay shows English (primary) and Spanish (verifier) a couple of seconds after the borrower stops talking.
+The overlay shows Spanish and English after each short pause (~450 ms silence).
+Use `WHISPER_MODEL=small` for production quality.
+`tiny` is too inaccurate for live Spanish fragments.
 
 There is no TTS, login, cloud capture, or Zoom-process tap in this phase.
 
@@ -39,9 +41,10 @@ This app does not store transcripts. Zoom Phone already does.
 Select **System Audio** (Mac) or the WASAPI loopback that matches the speakers/headset.
 Press **Start Spanish mode**.
 Play Spanish through that output.
-Captions appear after a pause (~800 ms silence) or at the 8 s utterance cap, not while someone is still talking.
+Captions appear after each pause (~450 ms silence) or at the 8 s utterance cap.
 
 First Start downloads Whisper `small` from Hugging Face into the Hugging Face cache (dev) or the app-support `hf/` folder (packaged).
+Set `QUESTROCK_MODAL_URL` to use Modal GPU inference instead (see [docs/MODAL.md](docs/MODAL.md)).
 
 ## Packaged installers
 
@@ -58,10 +61,14 @@ Build the Mac installer on a Mac.
 Build the Windows installer on a Windows PC.
 Do not copy a Mac sidecar into a Windows installer.
 
-OpenAI key for packaged apps (same keys as `.env.example`):
+OpenAI key for packaged apps (no local `.env` file on the loan officer PC):
 
-- macOS: `~/Library/Application Support/QuestRock AI Assistant/.env`
-- Windows: `%APPDATA%\QuestRock AI Assistant\.env`
+1. Set `QUESTROCK_CONFIG_URL` to your cloud config endpoint.
+   The app fetches JSON with `OPENAI_API_KEY` and related settings at startup.
+   Optional `QUESTROCK_DEVICE_TOKEN` is sent as `Authorization: Bearer`.
+2. Or set `OPENAI_API_KEY` as a Windows/macOS user or system environment variable.
+
+Development still uses a repo-root `.env` file (see above).
 
 ### macOS
 

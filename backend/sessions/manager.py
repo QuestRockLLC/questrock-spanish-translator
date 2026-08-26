@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from ai.inference.modal_client import RemoteMortgageTranslator, RemoteWhisperTranscriber
 from ai.translation.glossary import load_glossary
 from ai.translation.prompt import build_system_prompt
 from ai.translation.translator import MortgageTranslator
@@ -24,16 +25,33 @@ def production_dependencies(
     settings: Settings | None = None,
 ) -> SessionDependencies:
     settings = settings or Settings()
-    whisper_cache: dict[str, WhisperTranscriber] = {}
+    whisper_cache: dict[str, WhisperTranscriber | RemoteWhisperTranscriber] = {}
 
-    def load_whisper() -> WhisperTranscriber:
+    def load_whisper() -> WhisperTranscriber | RemoteWhisperTranscriber:
+        if settings.questrock_modal_url:
+            cached = whisper_cache.get(settings.whisper_model)
+            if cached is None:
+                cached = RemoteWhisperTranscriber.load(
+                    settings.whisper_model,
+                    base_url=settings.questrock_modal_url,
+                    token=settings.questrock_modal_token,
+                )
+                whisper_cache[settings.whisper_model] = cached
+            return cached
+
         cached = whisper_cache.get(settings.whisper_model)
         if cached is None:
             cached = WhisperTranscriber.load(settings.whisper_model)
             whisper_cache[settings.whisper_model] = cached
         return cached
 
-    def load_translator() -> MortgageTranslator:
+    def load_translator() -> MortgageTranslator | RemoteMortgageTranslator:
+        if settings.questrock_modal_url:
+            return RemoteMortgageTranslator.load(
+                base_url=settings.questrock_modal_url,
+                token=settings.questrock_modal_token,
+            )
+
         from openai import AsyncOpenAI
 
         glossary = load_glossary(glossary_path())
@@ -52,6 +70,8 @@ def production_dependencies(
         return VadSegmenter.with_silero(
             silence_ms=settings.vad_silence_ms,
             max_utterance_ms=settings.vad_max_utterance_ms,
+            min_utterance_ms=1000,
+            partial_interval_ms=0,
         )
 
     return SessionDependencies(
@@ -78,13 +98,13 @@ class SessionManager:
     ) -> CallSession:
         session = CallSession(
             call_session_id=call_session_id,
-            device_id=device_id,
             capture=capture,
-            vad=vad,
-            whisper=whisper,
-            translator=translator,
+            device_id=device_id,
             emit=emit,
             on_stop=lambda: self.discard(call_session_id),
+            translator=translator,
+            vad=vad,
+            whisper=whisper,
         )
         self._sessions[call_session_id] = session
         return session

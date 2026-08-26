@@ -1,3 +1,5 @@
+import logging
+
 import uvicorn
 from fastapi import FastAPI
 
@@ -36,6 +38,14 @@ def run() -> None:
 
     configure_logging()
     settings = Settings()
+    modal_url = getattr(settings, "questrock_modal_url", "") or ""
+    if str(modal_url).strip():
+        logging.getLogger("questrock").info(
+            "inference backend=modal url=%s",
+            str(modal_url).strip(),
+        )
+    else:
+        logging.getLogger("questrock").info("inference backend=local")
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=settings.port)
     args, _unknown = parser.parse_known_args()

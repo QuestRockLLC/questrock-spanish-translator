@@ -7,12 +7,15 @@ directories:
 files:
   - out/**/*
   - package.json
+  - build/trayTemplate.png
 asar: true
 extraResources:
   - from: ../packaging/dist/sidecar
     to: sidecar
     filter:
       - "**/*"
+  - from: build/trayTemplate.png
+    to: trayTemplate.png
 publish:
   provider: github
   owner: abbassaeedza

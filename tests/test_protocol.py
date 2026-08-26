@@ -102,6 +102,23 @@ def test_encode_transcript_is_final_true():
     assert payload["original_text"] == "hola"
 
 
+def test_encode_transcript_is_final_false():
+    payload = encode_server_message(
+        Transcript(
+            call_session_id="s1",
+            id="t1",
+            is_final=False,
+            original_language="es",
+            original_text="hola",
+            translated_text="hello",
+            confidence=0.9,
+            t0_ms=0,
+            t1_ms=800,
+        )
+    )
+    assert payload["is_final"] is False
+
+
 def test_encode_transcript_translated_text_null():
     payload = encode_server_message(
         Transcript(

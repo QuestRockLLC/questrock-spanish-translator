@@ -2,7 +2,8 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { app } from 'electron'
 import { createServer } from 'node:net'
 import path from 'node:path'
-import { loadEnvFiles, resolveSidecarLaunch } from './sidecarLaunch'
+import { resolveSidecarConfig, sidecarConfigError } from './remoteConfig'
+import { resolveSidecarLaunch } from './sidecarLaunch'
 
 export async function pickPort(): Promise<number> {
   return await new Promise((resolve, reject) => {
@@ -19,7 +20,7 @@ export async function pickPort(): Promise<number> {
   })
 }
 
-export function spawnSidecar(port: number): ChildProcess {
+export async function spawnSidecar(port: number): Promise<ChildProcess> {
   const repoRoot = path.resolve(app.getAppPath(), '..')
   const userData = app.getPath('userData')
   const launch = resolveSidecarLaunch({
@@ -29,16 +30,19 @@ export function spawnSidecar(port: number): ChildProcess {
     platform: process.platform,
     port,
   })
-  const fileEnv = loadEnvFiles([
-    path.join(repoRoot, '.env'),
-    path.join(launch.cwd, '.env'),
-    path.join(userData, '.env'),
-  ])
+  const config = await resolveSidecarConfig({
+    packaged: app.isPackaged,
+    repoRoot,
+  })
+  const configError = sidecarConfigError(config)
+  if (configError) {
+    throw new Error(configError)
+  }
   return spawn(launch.command, launch.args, {
     cwd: launch.cwd,
     env: {
       ...process.env,
-      ...fileEnv,
+      ...config,
       HF_HOME: path.join(userData, 'hf'),
       QUESTROCK_HOME: launch.cwd,
     },

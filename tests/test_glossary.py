@@ -20,6 +20,7 @@ def test_prompt_contains_preferred_english_and_rules():
     glossary = load_glossary(Path("config/mortgage_glossary.json"))
     prompt = build_system_prompt(glossary)
     assert "cash-out refinance" in prompt
-    assert "sacar dinero de mi casa" in prompt
-    assert "Do not hallucinate" in prompt
-    assert "Preserve numbers" in prompt
+    assert "refinanciamiento con retiro de efectivo" in prompt
+    assert "English only" in prompt
+    assert "literally" in prompt
+    assert len(prompt) < 500

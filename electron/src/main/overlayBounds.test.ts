@@ -6,7 +6,7 @@ describe('overlayBounds', () => {
   it('bottom-right compact card', () => {
     const b = overlayBounds(display, 'bottom-right')
     expect(b.width).toBeGreaterThanOrEqual(380)
-    expect(b.width).toBeLessThanOrEqual(420)
+    expect(b.width).toBeLessThanOrEqual(460)
     expect(b.x + b.width).toBe(1920 - 16)
     expect(b.y + b.height).toBe(1080 - 16)
   })

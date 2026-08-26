@@ -1,20 +1,21 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Overlay } from './Overlay'
+import { applyTranscript, Overlay, type OverlayCaptionState } from './Overlay'
 import type { ServerMessage } from '../../shared/protocol'
 import { parseServerMessage } from '../../shared/protocol'
 
+const emptyCaptions: OverlayCaptionState = { lines: [] }
+
 function OverlayApp() {
   const [status, setStatus] = useState('Idle')
-  const [originalText, setOriginalText] = useState('')
-  const [translatedText, setTranslatedText] = useState<string | null>(null)
+  const [captions, setCaptions] = useState<OverlayCaptionState>(emptyCaptions)
 
   useEffect(() => {
     const api = window.questrock
     if (!api) {
       return
     }
-    api.onEvent((raw) => {
+    const offEvent = api.onEvent((raw) => {
       let msg: ServerMessage
       try {
         msg = parseServerMessage(raw)
@@ -23,6 +24,7 @@ function OverlayApp() {
       }
       if (msg.type === 'session_started') {
         setStatus('Starting')
+        setCaptions(emptyCaptions)
       }
       if (msg.type === 'status') {
         const map: Record<string, string> = {
@@ -36,21 +38,20 @@ function OverlayApp() {
         const label = map[msg.state] ?? msg.state
         setStatus(msg.detail ? `${label} (${msg.detail})` : label)
         if (msg.state === 'idle') {
-          setOriginalText('')
-          setTranslatedText(null)
+          setCaptions(emptyCaptions)
         }
       }
       if (msg.type === 'error') {
         setStatus(msg.message)
       }
       if (msg.type === 'transcript') {
-        setOriginalText(msg.original_text)
-        setTranslatedText(msg.translated_text)
+        setCaptions((prev) => applyTranscript(prev, msg))
       }
     })
+    return offEvent
   }, [])
 
-  return <Overlay status={status} originalText={originalText} translatedText={translatedText} />
+  return <Overlay status={status} captions={captions} />
 }
 
 const el = document.getElementById('root')

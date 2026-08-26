@@ -2,16 +2,15 @@ from ai.translation.glossary import Glossary
 
 
 def build_system_prompt(glossary: Glossary) -> str:
-    lines = [
-        "Translate Spanish mortgage borrower speech into natural English.",
-        "Preserve meaning.",
-        "Use US mortgage terminology.",
-        "Do not hallucinate content that was not said.",
-        "Preserve numbers, loan amounts, interest rates, and dates exactly.",
-        "",
-        "Glossary (Spanish -> preferred English):",
-    ]
-    for term in glossary.terms:
-        for es_phrase in term.es:
-            lines.append(f"- {es_phrase} -> {term.preferred_en}")
-    return "\n".join(lines)
+    terms = "; ".join(
+        f"{term.es[0]}={term.preferred_en}"
+        for term in glossary.terms
+        if term.es
+    )
+    return (
+        "Translate the Spanish message to English literally. "
+        "Use only what was said. Do not add sales language or extra sentences. "
+        "If the message is incomplete, translate the fragment only. "
+        "English only. Keep numbers. "
+        f"Terms: {terms}"
+    )

@@ -1,34 +1,133 @@
 import type { CSSProperties } from 'react'
+import { useEffect, useRef } from 'react'
+import './overlay.css'
+
+export type CaptionLine = {
+  id: string
+  spanish: string
+  english: string | null
+  isLive: boolean
+}
+
+export type OverlayCaptionState = {
+  lines: CaptionLine[]
+}
 
 export type OverlayProps = {
   status: string
-  originalText: string
-  translatedText: string | null
+  captions: OverlayCaptionState
 }
 
 const wrap: CSSProperties = {
   fontFamily: 'system-ui, sans-serif',
-  background: 'rgba(12, 16, 22, 0.92)',
+  background: 'rgba(12, 16, 22, 0.94)',
   color: '#eef3f8',
   borderRadius: 10,
-  padding: '10px 12px',
+  padding: '8px 12px 10px',
   border: '1px solid #3d4a5c',
   WebkitAppRegion: 'drag',
+  boxSizing: 'border-box',
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
 } as CSSProperties
 
-export function Overlay({ status, originalText, translatedText }: OverlayProps) {
-  const english =
-    originalText === '' && translatedText == null
-      ? 'Waiting for speech'
-      : (translatedText ?? 'Translation unavailable')
+function englishFor(line: CaptionLine): string {
+  return line.english ?? line.spanish
+}
+
+function showSpanishVerifier(line: CaptionLine): boolean {
+  return Boolean(line.english && line.spanish && line.english !== line.spanish)
+}
+
+export function Overlay({ status, captions }: OverlayProps) {
+  const stackRef = useRef<HTMLDivElement | null>(null)
+  const bottomRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView?.({ block: 'end', behavior: 'smooth' })
+  }, [captions.lines])
+
   return (
     <div style={wrap}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#8fb4d9', marginBottom: 6 }}>
+      <div className="overlay-header">
         <span>QuestRock</span>
-        <span style={{ color: '#6ee7a8' }}>{status}</span>
+        <span className="overlay-status">{status}</span>
       </div>
-      {originalText ? <div className="spanish" style={{ fontSize: 11, color: '#9db0c4', marginBottom: 4 }}>{originalText}</div> : null}
-      <div className="english" style={{ fontSize: 15, lineHeight: 1.3, fontWeight: 600 }}>{english}</div>
+      <div ref={stackRef} className="caption-stack">
+        {captions.lines.length === 0 ? (
+          <div className="caption-empty">Waiting for a pause in speech</div>
+        ) : (
+          captions.lines.map((line, index) => {
+            const isBottom = index === captions.lines.length - 1
+            return (
+              <div
+                key={line.id}
+                ref={isBottom ? bottomRef : undefined}
+                className={`caption-row${isBottom ? ' live' : ' history'}`}
+              >
+                {showSpanishVerifier(line) ? (
+                  <div className="caption-spanish spanish">{line.spanish}</div>
+                ) : null}
+                <div className={`caption-english english${isBottom ? ' live' : ''}`}>
+                  {englishFor(line)}
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
     </div>
   )
+}
+
+export const MAX_OVERLAY_LINES = 5
+
+export function applyTranscript(
+  state: OverlayCaptionState,
+  msg: {
+    id: string
+    original_text: string
+    translated_text: string | null
+    is_final: boolean
+  },
+): OverlayCaptionState {
+  const idx = state.lines.findIndex((line) => line.id === msg.id)
+  if (idx >= 0) {
+    const lines = state.lines.map((line, i) =>
+      i === idx
+        ? {
+            ...line,
+            spanish: msg.original_text,
+            english: msg.translated_text ?? line.english,
+            isLive: !msg.is_final,
+          }
+        : line,
+    )
+    return { lines: trimLines(lines) }
+  }
+
+  const committed = state.lines.map((line) =>
+    line.isLive
+      ? {
+          ...line,
+          isLive: false,
+          english: line.english ?? line.spanish,
+        }
+      : line,
+  )
+  const lines = [
+    ...committed,
+    {
+      id: msg.id,
+      spanish: msg.original_text,
+      english: msg.translated_text,
+      isLive: !msg.is_final,
+    },
+  ]
+  return { lines: trimLines(lines) }
+}
+
+function trimLines(lines: CaptionLine[]): CaptionLine[] {
+  return lines.slice(-MAX_OVERLAY_LINES)
 }
