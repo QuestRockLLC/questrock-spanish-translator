@@ -2,7 +2,7 @@
 name = "questrock-sidecar"
 version = "0.1.0"
 description = "Local Spanish call-caption sidecar"
-license = "MIT"
+license = { file = "LICENSE" }
 authors = [{ name = "Abbas Saeed Zaidi" }]
 requires-python = ">=3.12"
 dependencies = [

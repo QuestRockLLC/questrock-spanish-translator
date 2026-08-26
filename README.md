@@ -131,6 +131,7 @@ See [docs/CODE_SIGNING.md](docs/CODE_SIGNING.md).
 
 ## License
 
-MIT.
-Copyright (c) 2026 Abbas Saeed Zaidi.
+Proprietary.
+All rights reserved.
+You may not use, copy, or distribute this software without written permission from Abbas Saeed Zaidi.
 See [LICENSE](LICENSE).
