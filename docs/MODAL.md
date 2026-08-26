@@ -55,7 +55,7 @@ https://your-workspace--questrock-inference-web-app.modal.run
 
 ### 4. Point the sidecar at Modal
 
-Add to repo-root `.env` (dev) or your cloud config JSON (packaged apps):
+**Dev:** add to repo-root `.env`:
 
 ```env
 QUESTROCK_MODAL_URL=https://your-workspace--questrock-inference-web-app.modal.run
@@ -63,14 +63,18 @@ QUESTROCK_MODAL_TOKEN=your-long-random-token
 WHISPER_MODEL=small
 ```
 
+Restart the Electron app after changing `.env`.
+
+**Packaged installer:** do not put a `.env` on the loan officer PC.
+`npm run dist:mac` / `dist:win` bakes the URL and token from your `.env` into `sidecar-config.json` inside the app.
+GitHub Releases need repository secrets `QUESTROCK_MODAL_URL` and `QUESTROCK_MODAL_TOKEN`.
+
 When `QUESTROCK_MODAL_URL` is set:
 
 - Local Whisper model download is skipped
 - Local `OPENAI_API_KEY` is not required (OpenAI runs on Modal)
 - Start warms the GPU container before the first pause
 - Each pause sends one `POST /v1/caption` (transcribe + translate)
-
-Restart the Electron app after changing `.env`.
 
 ## Verify
 

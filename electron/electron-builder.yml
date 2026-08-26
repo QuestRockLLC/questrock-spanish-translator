@@ -14,6 +14,8 @@ extraResources:
     to: sidecar
     filter:
       - "**/*"
+  - from: ../packaging/dist/sidecar-config.json
+    to: sidecar-config.json
   - from: build/trayTemplate.png
     to: trayTemplate.png
 publish:

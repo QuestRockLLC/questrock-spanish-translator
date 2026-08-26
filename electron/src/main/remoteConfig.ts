@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import { loadEnvFiles } from './sidecarLaunch'
 
 const CONFIG_KEYS = [
@@ -41,23 +43,19 @@ function fromProcessEnv(): SidecarConfig {
   return out
 }
 
-async function fetchRemoteConfig(url: string): Promise<SidecarConfig> {
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  const token = process.env.QUESTROCK_DEVICE_TOKEN
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
+export function loadBakedSidecarConfig(resourcesPath: string): SidecarConfig {
+  const file = path.join(resourcesPath, 'sidecar-config.json')
+  if (!existsSync(file)) {
+    return {}
   }
-  const res = await fetch(url, { headers })
-  if (!res.ok) {
-    throw new Error(`QuestRock config fetch failed (${res.status})`)
-  }
-  const body = (await res.json()) as Record<string, unknown>
-  return pickConfigFields(body)
+  const raw = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
+  return pickConfigFields(raw)
 }
 
 export async function resolveSidecarConfig(opts: {
   packaged: boolean
   repoRoot: string
+  resourcesPath?: string
 }): Promise<SidecarConfig> {
   if (!opts.packaged) {
     return {
@@ -66,11 +64,10 @@ export async function resolveSidecarConfig(opts: {
     }
   }
 
-  const url = process.env.QUESTROCK_CONFIG_URL
-  const remote = url ? await fetchRemoteConfig(url) : {}
+  const baked = opts.resourcesPath ? loadBakedSidecarConfig(opts.resourcesPath) : {}
   return {
     ...fromProcessEnv(),
-    ...remote,
+    ...baked,
   }
 }
 
@@ -82,7 +79,7 @@ export function sidecarConfigError(config: SidecarConfig): string | null {
     return null
   }
   return (
-    'OpenAI API key is missing. Set QUESTROCK_MODAL_URL (Modal GPU inference), ' +
-    'QUESTROCK_CONFIG_URL (cloud config), or OPENAI_API_KEY as a system environment variable.'
+    'Modal GPU config is missing. Rebuild the installer so it includes ' +
+    'sidecar-config.json, or set QUESTROCK_MODAL_URL for local dev.'
   )
 }

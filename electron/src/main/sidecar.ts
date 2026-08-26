@@ -33,6 +33,7 @@ export async function spawnSidecar(port: number): Promise<ChildProcess> {
   const config = await resolveSidecarConfig({
     packaged: app.isPackaged,
     repoRoot,
+    resourcesPath: process.resourcesPath,
   })
   const configError = sidecarConfigError(config)
   if (configError) {

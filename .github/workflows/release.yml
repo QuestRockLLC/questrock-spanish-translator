@@ -41,7 +41,10 @@ jobs:
         working-directory: electron
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          QUESTROCK_MODAL_URL: ${{ secrets.QUESTROCK_MODAL_URL }}
+          QUESTROCK_MODAL_TOKEN: ${{ secrets.QUESTROCK_MODAL_TOKEN }}
         run: |
+          node ../packaging/write-sidecar-config.cjs
           node ../packaging/check-sidecar.cjs darwin
           npm run build
           npx electron-builder --mac --config electron-builder.yml --publish never
@@ -81,7 +84,10 @@ jobs:
         working-directory: electron
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          QUESTROCK_MODAL_URL: ${{ secrets.QUESTROCK_MODAL_URL }}
+          QUESTROCK_MODAL_TOKEN: ${{ secrets.QUESTROCK_MODAL_TOKEN }}
         run: |
+          node ../packaging/write-sidecar-config.cjs
           node ../packaging/check-sidecar.cjs win32
           npm run build
           npx electron-builder --win --config electron-builder.yml --publish never

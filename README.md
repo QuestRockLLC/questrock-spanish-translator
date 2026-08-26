@@ -27,7 +27,7 @@ There is no TTS, login, cloud capture, or Zoom-process tap in this phase.
 Phase 1 live loop has been run on this Mac (system audio, Spanish video, captions, OpenAI translation).
 Windows live loop and a Windows-built installer are not proven here.
 
-Out of Phase 1: Zoom Phone process tap, Modal GPU, login, mortgage intent.
+Out of Phase 1: Zoom Phone process tap, login, mortgage intent.
 This app does not store transcripts. Zoom Phone already does.
 
 ## Development
@@ -43,32 +43,28 @@ Press **Start Spanish mode**.
 Play Spanish through that output.
 Captions appear after each pause (~450 ms silence) or at the 8 s utterance cap.
 
-First Start downloads Whisper `small` from Hugging Face into the Hugging Face cache (dev) or the app-support `hf/` folder (packaged).
-Set `QUESTROCK_MODAL_URL` to use Modal GPU inference instead (see [docs/MODAL.md](docs/MODAL.md)).
+First Start downloads Whisper `small` from Hugging Face only when Modal is not configured.
+Set `QUESTROCK_MODAL_URL` in the repo-root `.env` for local GPU inference (see [docs/MODAL.md](docs/MODAL.md)).
+Packaged installers already point at Modal.
 
 ## Packaged installers
 
-The `.dmg` / `.exe` already contains Electron, the UI, and a PyInstaller sidecar (Python, FastAPI, faster-whisper engine, Silero, glossary, and on Mac the AudioTap binary).
+The `.dmg` / `.exe` already contains Electron, the UI, a PyInstaller sidecar, and a baked `sidecar-config.json` (Modal URL + token).
 The loan officer does not install Python, Node, or pip.
+The loan officer does not create a `.env` file.
 
-It does not ship Whisper weight files.
-The first Start downloads them.
+OpenAI keys stay on Modal (`questrock-inference` secret).
+They never ship in the installer as a readable `.env`.
 
-Dev still uses `uv run questrock-sidecar`.
+Local `npm run dist:mac` / `dist:win` copies `QUESTROCK_MODAL_URL` and `QUESTROCK_MODAL_TOKEN` from your repo-root `.env` into the app bundle at build time.
+GitHub Release builds use repository secrets with the same names.
+
+Dev still uses `uv run questrock-sidecar` plus the repo-root `.env`.
 Packaged Electron spawns `Contents/Resources/sidecar/questrock-sidecar` (or `.exe` on Windows).
 
 Build the Mac installer on a Mac.
 Build the Windows installer on a Windows PC.
 Do not copy a Mac sidecar into a Windows installer.
-
-OpenAI key for packaged apps (no local `.env` file on the loan officer PC):
-
-1. Set `QUESTROCK_CONFIG_URL` to your cloud config endpoint.
-   The app fetches JSON with `OPENAI_API_KEY` and related settings at startup.
-   Optional `QUESTROCK_DEVICE_TOKEN` is sent as `Authorization: Bearer`.
-2. Or set `OPENAI_API_KEY` as a Windows/macOS user or system environment variable.
-
-Development still uses a repo-root `.env` file (see above).
 
 ### macOS
 
@@ -79,7 +75,7 @@ npm install
 npm run dist:mac
 ```
 
-Installer: `electron/release/QuestRock AI Assistant-0.1.3-arm64.dmg`
+Installer: `electron/release/QuestRock AI Assistant-0.2.0-arm64.dmg`
 
 The local Mac DMG is unsigned.
 First launch: right-click Open.
@@ -96,7 +92,7 @@ npm install
 npm run dist:win
 ```
 
-Installer: `electron/release/QuestRock-AI-Assistant-Setup-0.1.3.exe`
+Installer: `electron/release/QuestRock-AI-Assistant-Setup-0.2.0.exe`
 
 ## Public downloads and updates
 
@@ -106,7 +102,7 @@ Installers go to GitHub Releases.
 GitHub Pages (`docs/`) at https://abbassaeedza.github.io/questrock-spanish-whispy/ links the latest `.dmg` / `.exe`.
 The picker ignores `.blockmap` files so the Download button is a real installer.
 
-Current app version is `0.1.3` (`electron/package.json`, tag `v0.1.3`).
+Current app version is `0.2.0` (`electron/package.json`, tag `v0.2.0`).
 
 Installed copies check Releases on launch and show **Update now** in the control window.
 
@@ -114,10 +110,11 @@ Installed copies check Releases on launch and show **Update now** in the control
 
 1. Set `version` in `electron/package.json` (must match the tag you will push).
 2. Commit.
-3. `git tag v0.1.4` (example).
-4. `git push origin main v0.1.4`
+3. `git tag v0.2.1` (example).
+4. `git push origin main v0.2.1`
 
 GitHub Actions builds Mac and Windows with `--publish never`, uploads artifacts, then a **publish** job creates **one** GitHub Release for that tag.
+Add GitHub Actions secrets `QUESTROCK_MODAL_URL` and `QUESTROCK_MODAL_TOKEN` so the installer can talk to Modal.
 Do not let each OS job call `electron-builder --publish always`.
 That created two competing `v0.1.0` releases and 404s on installer URLs.
 
