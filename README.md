@@ -75,7 +75,7 @@ npm install
 npm run dist:mac
 ```
 
-Installer: `electron/release/QuestRock AI Assistant-0.2.0-arm64.dmg`
+Installer: `electron/release/QuestRock AI Assistant-0.2.1-arm64.dmg`
 
 The local Mac DMG is unsigned.
 First launch: right-click Open.
@@ -92,17 +92,17 @@ npm install
 npm run dist:win
 ```
 
-Installer: `electron/release/QuestRock-AI-Assistant-Setup-0.2.0.exe`
+Installer: `electron/release/QuestRock-AI-Assistant-Setup-0.2.1.exe`
 
 ## Public downloads and updates
 
 This is a desktop app, not a Vercel site.
 
 Installers go to GitHub Releases.
-GitHub Pages (`docs/`) at https://abbassaeedza.github.io/questrock-spanish-whispy/ links the latest `.dmg` / `.exe`.
+GitHub Pages (`docs/`) at https://questrockllc.github.io/questrock-spanish-translator/ links the latest `.dmg` / `.exe`.
 The picker ignores `.blockmap` files so the Download button is a real installer.
 
-Current app version is `0.2.0` (`electron/package.json`, tag `v0.2.0`).
+Current app version is `0.2.1` (`electron/package.json`, tag `v0.2.1`).
 
 Installed copies check Releases on launch and show **Update now** in the control window.
 
@@ -133,5 +133,5 @@ See [docs/CODE_SIGNING.md](docs/CODE_SIGNING.md).
 
 Proprietary.
 All rights reserved.
-You may not use, copy, or distribute this software without written permission from Abbas Saeed Zaidi.
+You may not use, copy, or distribute this software without written permission from QuestRock LLC.
 See [LICENSE](LICENSE).

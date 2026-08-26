@@ -1,6 +1,6 @@
 appId: com.questrock.ai-assistant
 productName: QuestRock AI Assistant
-copyright: Copyright Abbas Saeed Zaidi
+copyright: Copyright QuestRock LLC
 directories:
   output: release
   buildResources: build
@@ -20,8 +20,8 @@ extraResources:
     to: trayTemplate.png
 publish:
   provider: github
-  owner: abbassaeedza
-  repo: questrock-spanish-whispy
+  owner: QuestRockLLC
+  repo: questrock-spanish-translator
   releaseType: release
 mac:
   category: public.app-category.business

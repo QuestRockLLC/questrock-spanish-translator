@@ -1,13 +1,13 @@
 {
   "name": "questrock-ai-assistant",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Local Spanish call captions for QuestRock loan officers",
-  "author": "Abbas Saeed Zaidi",
+  "author": "QuestRock LLC",
   "license": "UNLICENSED",
-  "homepage": "https://abbassaeedza.github.io/questrock-spanish-whispy/",
+  "homepage": "https://questrockllc.github.io/questrock-spanish-translator/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/abbassaeedza/questrock-spanish-whispy.git"
+    "url": "https://github.com/QuestRockLLC/questrock-spanish-translator.git"
   },
   "private": true,
   "type": "module",
